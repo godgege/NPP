@@ -1,0 +1,53 @@
+name: NPP Build CI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test NPP
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build NPP
+        shell: pwsh
+        run: .\build-npp.ps1 -Configuration Release -OutputPath release -PlatformToolset v143
+
+      - name: Validate NPP solution
+        shell: pwsh
+        run: |
+          $projects = dotnet sln .\NPP.sln list
+          if ($LASTEXITCODE -ne 0) {
+            throw 'NPP solution validation failed.'
+          }
+          if ($projects -notcontains 'NPP\NPP.csproj' -or $projects -notcontains 'NPP.Core\NPP.Core.csproj') {
+            throw 'NPP solution does not contain the aligned NPP projects.'
+          }
+
+      - name: Upload NPP build
+        uses: actions/upload-artifact@v4
+        with:
+          name: NPP-win-x64
+          path: release
+          if-no-files-found: error
+          retention-days: 7

@@ -1,0 +1,8 @@
+/.vs
+/.idea
+/release
+/velopack
+/packages
+/TestResults
+**/bin/
+**/obj/

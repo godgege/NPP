@@ -1,0 +1,123 @@
+name: NPP Release CI
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: SemVer release tag to build and publish (starting at 1.0.0)
+        required: true
+        type: string
+  push:
+    tags:
+      - '*.*.*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and release NPP
+    runs-on: windows-2022
+    env:
+      RELEASE_VERSION: ${{ inputs.version || github.ref_name }}
+      RELEASE_CHANNEL: stable
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Validate release version
+        shell: pwsh
+        run: |
+          if ($env:RELEASE_VERSION -notmatch '^[vV]?\d+\.\d+\.\d+(?:-[0-9A-Za-z](?:[0-9A-Za-z.-]*[0-9A-Za-z])?)?(?:\+[0-9A-Za-z](?:[0-9A-Za-z.-]*[0-9A-Za-z])?)?$') {
+            throw "Release version must be a SemVer tag: $env:RELEASE_VERSION"
+          }
+
+      - name: Build NPP and Velopack packages
+        shell: pwsh
+        env:
+          VPK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $parameters = @{
+            Configuration = 'Release'
+            PackDir = 'release'
+            OutputDir = 'velopack'
+            Version = $env:RELEASE_VERSION
+            PlatformToolset = 'v143'
+            Channel = $env:RELEASE_CHANNEL
+          }
+          $normalizedVersion = $env:RELEASE_VERSION -replace '^[vV]', ''
+          if ($normalizedVersion -ne '1.0.0') {
+            $parameters.PreviousReleaseRepositoryUrl = "https://github.com/$env:GITHUB_REPOSITORY"
+          }
+          if ($env:RELEASE_VERSION.Contains('-')) {
+            $parameters.PreviousReleaseIsPrerelease = $true
+          }
+          .\build-velopack.ps1 @parameters
+
+      - name: Generate checksums
+        shell: pwsh
+        run: |
+          $body = @(
+            '## Changelogs'
+            '* NPP process-level proxy release built automatically by GitHub Actions.'
+            ''
+            '## 更新日志'
+            '* NPP 进程级代理发布包，由 GitHub Actions 自动构建。'
+            ''
+            '## 校验和'
+            '| 文件名 | SHA256 |'
+            '| :- | :- |'
+          )
+          $manifestPath = "velopack\assets.$env:RELEASE_CHANNEL.json"
+          $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
+          $releaseFileNames = @($manifest.RelativeFileName) + @("releases.$env:RELEASE_CHANNEL.json", "RELEASES-$env:RELEASE_CHANNEL")
+          $files = $releaseFileNames |
+            Sort-Object -Unique |
+            ForEach-Object { Join-Path 'velopack' $_ } |
+            Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
+          foreach ($file in $files) {
+            $item = Get-Item $file
+            $hash = (Get-FileHash $item.FullName -Algorithm SHA256).Hash.ToLower()
+            $body += "| $($item.Name) | $hash |"
+          }
+          $body | Out-File -Encoding UTF8 -FilePath RELEASE_BODY.md
+
+      - name: Publish Velopack release
+        shell: pwsh
+        env:
+          VPK_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = $env:RELEASE_VERSION -replace '^[vV]', ''
+          $arguments = @(
+            'tool', 'run', 'vpk', '--', 'upload', 'github',
+            '--repoUrl', "https://github.com/$env:GITHUB_REPOSITORY",
+            '--outputDir', 'velopack',
+            '--channel', $env:RELEASE_CHANNEL,
+            '--publish', 'true',
+            '--merge', 'true',
+            '--tag', $env:RELEASE_VERSION,
+            '--targetCommitish', $env:GITHUB_SHA,
+            '--releaseName', "NPP $version"
+          )
+          if ($env:RELEASE_VERSION.Contains('-')) {
+            $arguments += @('--pre', 'true')
+          }
+          & dotnet @arguments
+          if ($LASTEXITCODE -ne 0) {
+            throw "Publishing the Velopack release failed with exit code $LASTEXITCODE."
+          }
+
+      - name: Attach release notes
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit $env:RELEASE_VERSION --repo $env:GITHUB_REPOSITORY --notes-file RELEASE_BODY.md

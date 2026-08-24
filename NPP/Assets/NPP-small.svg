@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="64"
+     height="64"
+     viewBox="0 0 64 64"
+     fill="none">
+  <title>NPP 菱形汇聚图标（小尺寸优化）</title>
+  <rect x="3" y="3" width="58" height="58" rx="17" fill="#EFEDFC" />
+  <g stroke="#6556D9"
+     stroke-width="4"
+     stroke-linecap="round"
+     stroke-linejoin="round">
+    <path d="M32 24V20" />
+    <path d="M32 25L40 33L32 41L24 33Z" />
+    <path d="M27 38L18 48" />
+    <path d="M32 41V49" />
+    <path d="M37 38L46 48" />
+  </g>
+  <g fill="#6556D9">
+    <circle cx="32" cy="14" r="7" />
+    <circle cx="16" cy="51" r="3.8" />
+    <circle cx="32" cy="52" r="3.8" />
+    <circle cx="48" cy="51" r="3.8" />
+  </g>
+  <circle cx="32" cy="14" r="2.7" fill="#EFEDFC" />
+</svg>

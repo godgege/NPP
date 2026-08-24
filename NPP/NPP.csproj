@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <AssemblyName>NPP</AssemblyName>
+    <AssemblyTitle>NPP</AssemblyTitle>
+    <Product>NPP</Product>
+    <Company>NetchX</Company>
+    <Version>1.0.0</Version>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\NPP.ico</ApplicationIcon>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+    <RootNamespace>Netch.App</RootNamespace>
+    <Platforms>x64</Platforms>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <EnableMsixTooling>true</EnableMsixTooling>
+    <DefineConstants>DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="H.NotifyIcon.WinUI" Version="2.2.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.1" />
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="1.8.260317003" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
+    <PackageReference Include="Velopack" Version="1.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NPP.Core\NPP.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="Assets\NPP.ico" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Assets\NPP-small.svg" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="Assets\NPP.svg" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <RedirectorOutputDirectory>$(MSBuildProjectDirectory)\..\Redirector\bin\$(Configuration)</RedirectorOutputDirectory>
+    <RedirectorOutputDirectory Condition="!Exists('$(RedirectorOutputDirectory)\Redirector.bin')">$(MSBuildProjectDirectory)\..\Redirector\bin\Release</RedirectorOutputDirectory>
+  </PropertyGroup>
+
+  <Target Name="CopyNativeBinaries" AfterTargets="Build">
+    <Copy Condition="Exists('$(RedirectorOutputDirectory)\Redirector.bin')"
+          SourceFiles="$(RedirectorOutputDirectory)\Redirector.bin"
+          DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+    <Copy Condition="Exists('$(RedirectorOutputDirectory)\nfapi.dll')"
+          SourceFiles="$(RedirectorOutputDirectory)\nfapi.dll"
+          DestinationFolder="$(OutputPath)" SkipUnchangedFiles="true" />
+    <MakeDir Directories="$(OutputPath)bin" />
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\..\Storage\nfdriver.sys"
+          DestinationFolder="$(OutputPath)bin\" SkipUnchangedFiles="true" />
+  </Target>
+
+</Project>
