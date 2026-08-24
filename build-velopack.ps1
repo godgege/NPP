@@ -165,6 +165,38 @@ function Get-MsiPropertyValue {
     }
 }
 
+function Remove-FileWithRetry {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]
+        $Path,
+
+        [Parameter()]
+        [ValidateRange(1, 60)]
+        [int]
+        $Attempts = 20,
+
+        [Parameter()]
+        [ValidateRange(1, 5000)]
+        [int]
+        $DelayMilliseconds = 500
+    )
+
+    for ($attempt = 1; $attempt -le $Attempts; $attempt++) {
+        try {
+            Remove-Item -Force -LiteralPath $Path
+            return
+        }
+        catch [System.IO.IOException] {
+            if ($attempt -eq $Attempts) {
+                throw
+            }
+
+            Start-Sleep -Milliseconds $DelayMilliseconds
+        }
+    }
+}
+
 function Get-DefaultVersion {
     # GitHub also sets GITHUB_REF_NAME for branches and pull requests. Treat
     # only a valid SemVer tag as a package-version override.
@@ -308,7 +340,7 @@ try {
 
     $perUserInstallers = @(Get-ChildItem -LiteralPath $outputPath -Filter '*-Setup.exe' -File)
     foreach ($perUserInstaller in $perUserInstallers) {
-        Remove-Item -Force -LiteralPath $perUserInstaller.FullName
+        Remove-FileWithRetry -Path $perUserInstaller.FullName
     }
 
     $assetManifestPath = Join-Path $outputPath "assets.$Channel.json"
