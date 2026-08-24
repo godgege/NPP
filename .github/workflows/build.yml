@@ -45,7 +45,7 @@ jobs:
           }
 
       - name: Upload NPP build
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: NPP-win-x64
           path: release
