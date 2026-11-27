@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Net;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
@@ -236,7 +237,7 @@ public sealed class VelopackUpdateService : ObservableObject, IDisposable
             else
             {
                 Log.Error(exception, "The Velopack update check failed");
-                SetUiState(AppUpdateStage.Failed, "检查更新失败，请稍后重试");
+                SetUiState(AppUpdateStage.Failed, DescribeUpdateFailure(exception, "检查更新"));
             }
 
             return false;
@@ -284,7 +285,7 @@ public sealed class VelopackUpdateService : ObservableObject, IDisposable
         catch (Exception exception)
         {
             Log.Error(exception, "The Velopack update download failed");
-            SetUiState(AppUpdateStage.Failed, "下载更新失败，请稍后重试", failedWhileDownloading: true);
+            SetUiState(AppUpdateStage.Failed, DescribeUpdateFailure(exception, "下载更新"), failedWhileDownloading: true);
         }
         finally
         {
@@ -369,8 +370,28 @@ public sealed class VelopackUpdateService : ObservableObject, IDisposable
 
     private static UpdateManager CreateManager(bool includePrerelease)
     {
-        var source = new GithubSource(RepositoryUrl, accessToken: null, includePrerelease);
+        // Stable releases expose the Velopack feed directly. Avoid the GitHub
+        // API's shared unauthenticated quota for the default update check.
+        IUpdateSource source = includePrerelease
+            ? new GithubSource(RepositoryUrl, accessToken: null, prerelease: true)
+            : new SimpleWebSource($"{RepositoryUrl}/releases/latest/download");
         return new UpdateManager(source);
+    }
+
+    private static string DescribeUpdateFailure(Exception exception, string operation)
+    {
+        var cause = exception.GetBaseException();
+        if (cause is HttpRequestException http)
+        {
+            if (http.StatusCode is HttpStatusCode.Forbidden or HttpStatusCode.TooManyRequests)
+                return $"{operation}失败：GitHub 请求受限，请稍后重试";
+            if (http.StatusCode == HttpStatusCode.NotFound)
+                return $"{operation}失败：更新资源不存在，请前往 GitHub 下载";
+        }
+
+        return cause is OperationCanceledException
+            ? $"{operation}超时，请检查网络后重试"
+            : $"{operation}失败，请检查网络后重试";
     }
 
     private void SetUiState(
