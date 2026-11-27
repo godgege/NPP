@@ -20,7 +20,11 @@ param (
 
     [Parameter()]
     [string]
-    $PlatformToolset = ''
+    $PlatformToolset = '',
+
+    [Parameter()]
+    [switch]
+    $SkipPortableSync
 )
 
 $ErrorActionPreference = 'Stop'
@@ -266,6 +270,7 @@ try {
     $versionInfo = Get-VersionInfo -Value $Version
     $applicationManifestPath = Join-Path $repositoryRoot 'NPP\app.manifest'
     Assert-AdministratorManifest -Path $applicationManifestPath
+    & (Join-Path $repositoryRoot 'prepare-v2rayn.ps1')
     $stagingPath = Reset-RepositoryDirectory -Path $OutputPath
     $msbuildPath = Get-MSBuildPath
 
@@ -358,6 +363,10 @@ try {
         (Join-Path $stagingPath 'nfapi.dll'),
         (Join-Path $stagingPath 'RouteHelper.bin'),
         (Join-Path $nativeBinPath 'nfdriver.sys'),
+        (Join-Path $stagingPath 'clients\v2rayN\v2rayN.exe'),
+        (Join-Path $stagingPath 'clients\v2rayN\package.json'),
+        (Join-Path $stagingPath 'clients\v2rayN\LICENSE'),
+        (Join-Path $stagingPath 'clients\v2rayN\bin\xray\xray.exe'),
         (Join-Path $stagingPath 'NPP.ico')
     )) {
         if (-Not (Test-Path -LiteralPath $stagedFile -PathType Leaf)) {
@@ -378,6 +387,9 @@ try {
     Write-Host "NPP staging is ready: $stagingPath"
     Write-Host "NPP.exe product version: $publishedVersion"
     Write-Host 'NPP.exe execution level: requireAdministrator'
+    if (-Not $SkipPortableSync) {
+        & (Join-Path $repositoryRoot 'update-portable.ps1') -SourcePath $stagingPath
+    }
 }
 finally {
     Pop-Location

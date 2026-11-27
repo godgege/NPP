@@ -260,6 +260,7 @@ try {
             OutputPath    = $packPath
             Version       = $Version
             Runtime       = $Runtime
+            SkipPortableSync = $true
         }
         if (-Not [string]::IsNullOrWhiteSpace($PlatformToolset)) {
             $buildParameters.PlatformToolset = $PlatformToolset
@@ -282,7 +283,11 @@ try {
 
     Assert-NoRepositoryReparsePoint -Path $outputPath
     if (Test-Path -LiteralPath $outputPath) {
-        Remove-Item -Recurse -Force -LiteralPath $outputPath
+        # Keep the directory itself: an active Sandbox mapping or Explorer
+        # window can hold it open even when its package files are not in use.
+        Get-ChildItem -LiteralPath $outputPath -Force |
+            Where-Object { $_.Name -ne 'NPP-Portable' -and $_.Name -ne 'NPP-Portable.lnk' } |
+            Remove-Item -Recurse -Force
     }
     New-Item -ItemType Directory -Force -Path $outputPath | Out-Null
 

@@ -6,6 +6,7 @@ using Microsoft.UI.Xaml.Media;
 using System.ComponentModel;
 using Netch.App.Models;
 using Netch.App.ViewModels;
+using Netch.App.Services;
 
 namespace Netch.App.Views;
 
@@ -16,6 +17,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private bool _shouldLoadHomeContent;
 
     public MainViewModel ViewModel { get; }
+    public ProxyConnectivityService Connectivity { get; }
 
     public bool ShouldLoadHomeContent => _shouldLoadHomeContent;
 
@@ -24,6 +26,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     public MainPage()
     {
         ViewModel = App.Services.GetRequiredService<MainViewModel>();
+        Connectivity = App.Services.GetRequiredService<ProxyConnectivityService>();
         InitializeComponent();
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
@@ -34,6 +37,7 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
         _isPageActive = true;
         ViewModel.PropertyChanged -= ViewModel_PropertyChanged;
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+        Connectivity.SetHomeEndpoint(ViewModel.ProxyHost, ViewModel.ProxyPort);
         TryMaterializeHomeContent();
         if (ViewModel.IsHomeLoaded)
             DispatcherQueue.TryEnqueue(UpdateConfigurationEditState);
@@ -50,6 +54,8 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
 
     private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName is nameof(MainViewModel.ProxyHost) or nameof(MainViewModel.ProxyPort))
+            Connectivity.SetHomeEndpoint(ViewModel.ProxyHost, ViewModel.ProxyPort);
         if (e.PropertyName is nameof(MainViewModel.CurrentState) or
             nameof(MainViewModel.CanEditConfiguration) or
             nameof(MainViewModel.IsHomeLoaded))
@@ -71,7 +77,6 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
     private void UpdateConfigurationEditState()
     {
         if (!ViewModel.IsHomeLoaded ||
-            ProxySettingsCard == null ||
             AppSelectionCard == null ||
             ProxyRulesCard == null)
             return;
@@ -81,17 +86,12 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
             return;
 
         _appliedConfigurationEnabled = enabled;
-        ProxySettingsCard.IsHitTestVisible = enabled;
         AppSelectionCard.IsHitTestVisible = enabled;
         ProxyRulesCard.IsHitTestVisible = enabled;
-        SetControlsEnabled(ProxySettingsCard, enabled);
         SetControlsEnabled(AppSelectionCard, enabled);
         SetControlsEnabled(ProxyRulesCard, enabled);
         if (enabled)
-        {
-            ProxyHostTextBox.IsEnabled = ViewModel.IsHostEditable;
             ScanDirectoryButton.IsEnabled = ViewModel.CanScanDirectory;
-        }
         ConfigurationLockOverlay.Visibility = enabled ? Visibility.Collapsed : Visibility.Visible;
     }
 
@@ -146,6 +146,9 @@ public sealed partial class MainPage : Page, INotifyPropertyChanged
             App.MainWindow.ShowNotification($"高级设置无法打开：{exception.GetBaseException().Message}", isInfo: false);
         }
     }
+
+    private void CheckConnectivity_Click(object sender, RoutedEventArgs e) =>
+        _ = Connectivity.CheckHomeAsync(ViewModel.ProxyHost, ViewModel.ProxyPort);
 
     private async void AdvancedProxyDialog_PrimaryButtonClick(
         ContentDialog sender,

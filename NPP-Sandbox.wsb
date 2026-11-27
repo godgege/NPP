@@ -1,0 +1,13 @@
+<Configuration>
+  <Networking>Default</Networking>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>D:\_my\github\NPP\release</HostFolder>
+      <SandboxFolder>C:\Users\WDAGUtilityAccount\Desktop\NPP-Portable</SandboxFolder>
+      <ReadOnly>true</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <LogonCommand>
+    <Command>powershell.exe -NoLogo -NoProfile -NonInteractive -WindowStyle Hidden -Command "$ErrorActionPreference = 'Stop'; $key = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'; if (-not (Test-Path -LiteralPath $key)) { New-Item -Path $key -Force | Out-Null }; New-ItemProperty -Path $key -Name HideFileExt -PropertyType DWord -Value 0 -Force | Out-Null; Get-Process explorer -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 3; Start-Process explorer.exe -ArgumentList '/select,C:\Users\WDAGUtilityAccount\Desktop\NPP-Portable\NPP-Portable.lnk'"</Command>
+  </LogonCommand>
+</Configuration>

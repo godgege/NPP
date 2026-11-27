@@ -63,15 +63,25 @@ jobs:
           }
           .\build-velopack.ps1 @parameters
 
+      - name: Check SOCKS5 connectivity behavior
+        shell: pwsh
+        run: dotnet run --project Tests\ConnectivityChecks\ConnectivityChecks.csproj -c Release
+
       - name: Generate checksums
         shell: pwsh
         run: |
-          $body = @(
+          $version = $env:RELEASE_VERSION -replace '^[vV]', ''
+          $notesPath = ".github/release-notes/$version.md"
+          $body = if (Test-Path -LiteralPath $notesPath) {
+            @(Get-Content -Encoding UTF8 -LiteralPath $notesPath)
+          } else { @(
             '## Changelogs'
             '* NPP process-level proxy release built automatically by GitHub Actions.'
             ''
             '## 更新日志'
             '* NPP 进程级代理发布包，由 GitHub Actions 自动构建。'
+          ) }
+          $body += @(
             ''
             '## 校验和'
             '| 文件名 | SHA256 |'

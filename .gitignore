@@ -4,5 +4,7 @@
 /velopack
 /packages
 /TestResults
+/Storage/v2rayN/
+/Storage/.v2rayN-*/
 **/bin/
 **/obj/

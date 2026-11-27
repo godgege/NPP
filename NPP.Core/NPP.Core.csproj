@@ -7,7 +7,7 @@
     <AssemblyTitle>NPP.Core</AssemblyTitle>
     <Product>NPP</Product>
     <Company>NetchX</Company>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <RootNamespace>Netch</RootNamespace>
     <Configurations>Debug;Release</Configurations>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>

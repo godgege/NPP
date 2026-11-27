@@ -32,10 +32,10 @@
 
   <!-- MainWindow Navigation -->
   <data name="NavHome.Content" xml:space="preserve">
-    <value>主页</value>
+    <value>应用分流</value>
   </data>
   <data name="NavServers.Content" xml:space="preserve">
-    <value>服务器</value>
+    <value>代理节点</value>
   </data>
   <data name="NavLog.Content" xml:space="preserve">
     <value>日志</value>
@@ -92,24 +92,24 @@
   <data name="ExitWhenClosed" xml:space="preserve">
     <value>关闭窗口时退出</value>
   </data>
-  <data name="StopWhenExited" xml:space="preserve">
-    <value>退出时停止</value>
-  </data>
   <data name="StartWhenOpened" xml:space="preserve">
-    <value>启动时自动加速</value>
+    <value>启动时开启分流</value>
   </data>
   <data name="MinimizeWhenStarted" xml:space="preserve">
     <value>启动后最小化</value>
   </data>
   <data name="RunAtStartup" xml:space="preserve">
-    <value>开机自启</value>
+    <value>开机自动启动</value>
+  </data>
+  <data name="StartEmbeddedClientWhenOpened" xml:space="preserve">
+    <value>启动时连接节点</value>
   </data>
 
   <!-- Tray -->
   <data name="TrayShow" xml:space="preserve">
-    <value>显示主窗口</value>
+    <value>显示</value>
   </data>
   <data name="TrayExit" xml:space="preserve">
-    <value>退出 NPP</value>
+    <value>退出</value>
   </data>
 </root>

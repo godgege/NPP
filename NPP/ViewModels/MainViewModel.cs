@@ -6,7 +6,9 @@ using System.Security;
 using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.UI;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Media;
 using Netch.App.Models;
 using Netch.App.Services;
 using Netch.Enums;
@@ -102,14 +104,21 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public string StatusText => _liteModeManager.StatusText;
 
-    public string RunStateLabel => CurrentState switch
+    public string RoutingButtonText => CurrentState switch
     {
-        State.Waiting or State.Stopped => "当前已停止",
-        State.Started => "代理运行中",
-        State.Starting => "正在启动",
-        State.Stopping => "正在停止",
+        State.Waiting or State.Stopped => "已停止 · 启动",
+        State.Started => "运行中 · 停止",
+        State.Starting => "启动中…",
+        State.Stopping => "停止中…",
         _ => "状态未知"
     };
+
+    public Brush RoutingStatusBrush => new SolidColorBrush(CurrentState switch
+    {
+        State.Started => ColorHelper.FromArgb(255, 30, 166, 114),
+        State.Starting or State.Stopping => ColorHelper.FromArgb(255, 224, 151, 42),
+        _ => ColorHelper.FromArgb(255, 139, 151, 168)
+    });
 
     public bool IsHomeLoaded => !IsHomeLoading && _homeInitializationSucceeded;
 
@@ -201,8 +210,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
                                 !_isShuttingDown &&
                                 !IsApplicationScanning &&
                                 _liteModeManager.CanStartStop;
-
-    public string ControlButtonText => _liteModeManager.ControlButtonText;
 
     public MainViewModel(NetchAppContext appContext, LiteModeManager liteModeManager, Configuration configuration)
     {
@@ -638,9 +645,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         if (e.PropertyName == nameof(LiteModeManager.CurrentState))
         {
             OnPropertyChanged(nameof(CurrentState));
-            OnPropertyChanged(nameof(RunStateLabel));
+            OnPropertyChanged(nameof(RoutingButtonText));
+            OnPropertyChanged(nameof(RoutingStatusBrush));
             OnPropertyChanged(nameof(CanStartStop));
-            OnPropertyChanged(nameof(ControlButtonText));
             OnPropertyChanged(nameof(CanEditConfiguration));
             OnPropertyChanged(nameof(IsHostEditable));
             OnPropertyChanged(nameof(CanScanDirectory));
@@ -655,10 +662,6 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             OnPropertyChanged(nameof(CanStartStop));
             StartStopCommand.NotifyCanExecuteChanged();
-        }
-        else if (e.PropertyName == nameof(LiteModeManager.ControlButtonText))
-        {
-            OnPropertyChanged(nameof(ControlButtonText));
         }
         else if (e.PropertyName == nameof(LiteModeManager.CurrentProcessNames))
         {
@@ -877,11 +880,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             return false;
 
         var processes = ProcessGroups.SelectMany(g => g.Processes).ToList();
-        var started = await _liteModeManager.StartAsync(ProxyHost, ProxyPort, processes);
-        if (started && _appContext.Settings.MinimizeWhenStarted)
-            App.MainWindow.MinimizeToTray();
-
-        return started;
+        return await _liteModeManager.StartAsync(ProxyHost, ProxyPort, processes);
     }
 
     private Task StopAsync()

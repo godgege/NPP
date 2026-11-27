@@ -9,6 +9,7 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media.Animation;
 using Netch;
+using Netch.App.Helpers;
 using Netch.App.Services;
 using Netch.App.ViewModels;
 using Netch.Enums;
@@ -30,17 +31,19 @@ public sealed partial class MainWindow : Window
     private const int ShowWindowCommandShow = 5;
 
     private TaskbarIcon? _trayIcon;
-    private System.Drawing.Icon? _trayDrawingIcon;
+    private System.Drawing.Icon? _trayRunningIconTemplate;
+    private System.Drawing.Icon? _trayStoppedIconTemplate;
+    private bool? _trayShowsRunning;
     private readonly LiteModeManager _liteModeManager;
     private readonly MainViewModel _mainViewModel;
     private readonly VelopackUpdateService _updateService;
+    private readonly EmbeddedV2rayNService _embeddedClient;
+    private readonly ProxyConnectivityService _connectivity;
     private readonly Task _homeInitializationTask;
     private readonly HashSet<Type> _loadedPageTypes = [];
     private bool _forceExit;
     private bool _exitInProgress;
     private bool _mainViewModelDisposed;
-    private bool _hasTitleBarStateSnapshot;
-    private State _lastTitleBarState;
     private InputNonClientPointerSource? _nonClientInputSource;
     private int _navigationVersion;
 
@@ -51,13 +54,14 @@ public sealed partial class MainWindow : Window
         _liteModeManager = App.Services.GetRequiredService<LiteModeManager>();
         _mainViewModel = App.Services.GetRequiredService<MainViewModel>();
         _updateService = App.Services.GetRequiredService<VelopackUpdateService>();
+        _embeddedClient = App.Services.GetRequiredService<EmbeddedV2rayNService>();
+        _connectivity = App.Services.GetRequiredService<ProxyConnectivityService>();
         _mainViewModel.InitializeShell();
-        _mainViewModel.PropertyChanged += TitleBarViewModel_PropertyChanged;
+        _mainViewModel.PropertyChanged += MainViewModel_PropertyChanged;
         Title = AppDisplayName;
         ConfigureTitleBar();
         ConfigureInitialWindowSize();
         this.AppWindow.Changed += OnAppWindowChanged;
-        UpdateTitleBarProxyControls();
         if (ContentFrame.Navigate(typeof(MainPage), null, new SuppressNavigationTransitionInfo()))
             _loadedPageTypes.Add(typeof(MainPage));
         _homeInitializationTask = _mainViewModel.InitializeAsync();
@@ -96,8 +100,9 @@ public sealed partial class MainWindow : Window
         var displayArea = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
         var workArea = displayArea.WorkArea;
 
-        var preferredWidth = (int)Math.Round(900 * scale);
-        var preferredHeight = (int)Math.Round(600 * scale);
+        // Preserve v2rayN's default 1200 x 800 content size, plus the NPP tabs.
+        var preferredWidth = (int)Math.Round(1200 * scale);
+        var preferredHeight = (int)Math.Round(848 * scale);
         var width = Math.Min(preferredWidth, (int)Math.Round(workArea.Width * 0.94));
         var height = Math.Min(preferredHeight, (int)Math.Round(workArea.Height * 0.94));
 
@@ -118,6 +123,9 @@ public sealed partial class MainWindow : Window
             var workArea = DisplayArea.GetFromWindowId(sender.Id, DisplayAreaFallback.Nearest).WorkArea;
             UpdateMinimumWindowSize(sender, scale, workArea);
         }
+        _embeddedClient.SetVisible(sender.IsVisible &&
+            (sender.Presenter is not OverlappedPresenter presenter || presenter.State != OverlappedPresenterState.Minimized) &&
+            ContentFrame.CurrentSourcePageType == typeof(V2rayNPage));
     }
 
     private static void UpdateMinimumWindowSize(AppWindow window, double scale, RectInt32 workArea)
@@ -154,9 +162,9 @@ public sealed partial class MainWindow : Window
         var interactiveElements = new FrameworkElement[]
         {
             HomeNavButton,
+            V2rayNNavButton,
             LogNavButton,
-            SettingsNavButton,
-            TitleBarStartStopButton
+            SettingsNavButton
         };
         var regions = interactiveElements
             .Where(element => element.Visibility == Visibility.Visible &&
@@ -177,86 +185,40 @@ public sealed partial class MainWindow : Window
         _nonClientInputSource.SetRegionRects(NonClientRegionKind.Passthrough, regions);
     }
 
-    private void TitleBarViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    private void MainViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName is nameof(MainViewModel.CurrentState) or
-            nameof(MainViewModel.RunStateLabel) or
-            nameof(MainViewModel.ControlButtonText) or
-            nameof(MainViewModel.CanStartStop))
-            UpdateTitleBarProxyControls();
-    }
-
-    private void UpdateTitleBarProxyControls()
-    {
-        var currentState = _mainViewModel.CurrentState;
-        var stateChanged = !_hasTitleBarStateSnapshot || currentState != _lastTitleBarState;
-
-        TitleBarStatusText.Text = currentState switch
-        {
-            State.Started => "运行中",
-            State.Starting => "启动中",
-            State.Stopping => "停止中",
-            _ => "未运行"
-        };
-        TitleBarStartStopButton.Content = currentState is State.Started or State.Starting
-            ? "停止代理"
-            : "启动代理";
-        TitleBarStartStopButton.IsEnabled = _mainViewModel.CanStartStop;
-
-        TitleBarStatusDot.Fill = new Microsoft.UI.Xaml.Media.SolidColorBrush(
-            currentState switch
-            {
-                State.Started => ColorHelper.FromArgb(255, 30, 166, 114),
-                State.Starting or State.Stopping => ColorHelper.FromArgb(255, 224, 151, 42),
-                _ => ColorHelper.FromArgb(255, 139, 151, 168)
-            });
-
-        var shouldRestoreFocus = _hasTitleBarStateSnapshot &&
-                                 TitleBarStartStopButton.IsEnabled &&
-                                 currentState is State.Waiting or State.Stopped or State.Started &&
-                                 stateChanged;
-        _lastTitleBarState = currentState;
-        _hasTitleBarStateSnapshot = true;
-
-        if (shouldRestoreFocus)
-            DispatcherQueue.TryEnqueue(() =>
-            {
-                if (TitleBarStartStopButton.IsEnabled)
-                    TitleBarStartStopButton.Focus(FocusState.Programmatic);
-            });
-    }
-
-    private void TitleBarStartStopButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_mainViewModel.StartStopCommand.CanExecute(null))
-            _mainViewModel.StartStopCommand.Execute(null);
+        if (e.PropertyName == nameof(MainViewModel.CurrentState))
+            UpdateTrayIcon();
     }
 
     private void SetupTrayIcon()
     {
         if (File.Exists(AppIconPath))
-            _trayDrawingIcon = new System.Drawing.Icon(AppIconPath);
+        {
+            using var appIcon = new System.Drawing.Icon(AppIconPath, 32, 32);
+            _trayRunningIconTemplate = TrayIconFactory.Create(appIcon, proxyRunning: true);
+            _trayStoppedIconTemplate = TrayIconFactory.Create(appIcon, proxyRunning: false);
+        }
 
         _trayIcon = new TaskbarIcon
         {
-            ToolTipText = AppDisplayName,
-            Icon = _trayDrawingIcon,
             ContextMenuMode = H.NotifyIcon.ContextMenuMode.PopupMenu,
             NoLeftClickDelay = true
         };
+        UpdateTrayIcon();
 
         var menu = new MenuFlyout();
 
         var showItem = new MenuFlyoutItem
         {
-            Text = "显示主窗口",
+            Text = "显示",
             Command = new RelayCommand(ShowWindow)
         };
         menu.Items.Add(showItem);
 
         var exitItem = new MenuFlyoutItem
         {
-            Text = "退出 NPP",
+            Text = "退出",
             Command = new AsyncRelayCommand(RequestExitAsync)
         };
         menu.Items.Add(exitItem);
@@ -264,6 +226,30 @@ public sealed partial class MainWindow : Window
         _trayIcon.ContextFlyout = menu;
         _trayIcon.LeftClickCommand = new RelayCommand(ShowWindow);
         _trayIcon.ForceCreate(enablesEfficiencyMode: false);
+    }
+
+    private void UpdateTrayIcon()
+    {
+        if (_trayIcon == null)
+            return;
+
+        var state = _mainViewModel.CurrentState;
+        var isRunning = state == State.Started;
+        if (_trayShowsRunning != isRunning)
+        {
+            // H.NotifyIcon owns the assigned icon and disposes it on replacement.
+            var template = isRunning ? _trayRunningIconTemplate : _trayStoppedIconTemplate;
+            _trayIcon.Icon = (System.Drawing.Icon?)template?.Clone();
+            _trayShowsRunning = isRunning;
+        }
+
+        _trayIcon.ToolTipText = $"{AppDisplayName} · {state switch
+        {
+            State.Started => "代理已开启",
+            State.Starting => "代理启动中",
+            State.Stopping => "代理停止中",
+            _ => "代理未开启"
+        }}";
     }
 
     private void ApplyApplicationIcon()
@@ -279,11 +265,15 @@ public sealed partial class MainWindow : Window
 
     private void ShowWindow()
     {
+        if (!_exitInProgress)
+            _ = _connectivity.CheckHomeAsync(_mainViewModel.ProxyHost, _mainViewModel.ProxyPort);
+
         SetWindowVisibility(WindowNative.GetWindowHandle(this), ShowWindowCommandShow);
         this.Activate();
         var presenter = this.AppWindow.Presenter as Microsoft.UI.Windowing.OverlappedPresenter;
         if (presenter != null && presenter.State == Microsoft.UI.Windowing.OverlappedPresenterState.Minimized)
             presenter.Restore();
+        _embeddedClient.SetVisible(ContentFrame.CurrentSourcePageType == typeof(V2rayNPage));
     }
 
     public void ActivateFromSecondaryInstance()
@@ -293,6 +283,7 @@ public sealed partial class MainWindow : Window
 
     public void MinimizeToTray()
     {
+        _embeddedClient.SetVisible(false);
         SetWindowVisibility(WindowNative.GetWindowHandle(this), ShowWindowCommandHide);
     }
 
@@ -305,14 +296,30 @@ public sealed partial class MainWindow : Window
         if (settings.CheckUpdateWhenOpened)
             _ = CheckForUpdatesOnStartupAsync(settings.CheckBetaUpdate);
 
+        _ = _connectivity.CheckHomeAsync(_mainViewModel.ProxyHost, _mainViewModel.ProxyPort, startup: true);
+        // 内置节点和应用分流独立启动。分流规则可以在节点的 SOCKS5 端口就绪之前安装。
+        var nodeStartup = settings.StartEmbeddedClientWhenOpened
+            ? StartEmbeddedClientAsync()
+            : Task.CompletedTask;
         await _homeInitializationTask;
+        var shouldAutoStartProxy = settings.StartWhenOpened;
         var started = await _mainViewModel.StartIfConfiguredAsync();
+        if (shouldAutoStartProxy && !started && (Program.IsStartupLaunch || settings.MinimizeWhenStarted))
+            ShowNotification(_liteModeManager.StatusText, isInfo: false);
 
-        if (Program.IsStartupLaunch)
+        await nodeStartup;
+    }
+
+    private async Task StartEmbeddedClientAsync()
+    {
+        try
         {
-            MinimizeToTray();
-            if (settings.StartWhenOpened && !started)
-                ShowNotification(_liteModeManager.StatusText, isInfo: false);
+            await _embeddedClient.EnsureStartedAsync(WindowNative.GetWindowHandle(this));
+        }
+        catch (Exception exception)
+        {
+            Serilog.Log.Error(exception, "The bundled v2rayN client could not be started");
+            ShowNotification("内置 v2rayN 启动失败，可在“代理节点”页重试", isInfo: false);
         }
     }
 
@@ -353,17 +360,16 @@ public sealed partial class MainWindow : Window
 
         _exitInProgress = true;
         _mainViewModel.BeginShutdown();
-        TitleBarStartStopButton.IsEnabled = false;
         try
         {
             await _mainViewModel.WaitForActiveOperationAsync();
 
-            var settings = NetchAppContext.Current?.Settings;
-            if (settings?.StopWhenExited == true &&
-                _liteModeManager.CurrentState is State.Started or State.Starting or State.Stopping)
+            if (_liteModeManager.CurrentState is State.Started or State.Starting or State.Stopping)
                 await _liteModeManager.StopAsync();
 
             await _mainViewModel.SaveSettingsAsync();
+
+            await _embeddedClient.StopAsync();
 
             _forceExit = true;
             DisposeTrayIcon();
@@ -372,6 +378,8 @@ public sealed partial class MainWindow : Window
         catch (Exception e)
         {
             Serilog.Log.Error(e, "Failed while shutting down NPP");
+            try { await _embeddedClient.StopAsync(); }
+            catch (Exception clientError) { Serilog.Log.Warning(clientError, "Failed to stop bundled v2rayN"); }
             try
             {
                 await _mainViewModel.SaveSettingsAsync();
@@ -393,19 +401,20 @@ public sealed partial class MainWindow : Window
             return;
 
         _exitInProgress = true;
+        var restartEmbeddedClient = false;
         try
         {
             _updateService.BeginPreparingRestart();
             _mainViewModel.BeginShutdown();
-            TitleBarStartStopButton.IsEnabled = false;
             await _mainViewModel.WaitForActiveOperationAsync();
 
-            // An updater must never inherit the normal "keep proxy running on exit"
-            // preference: the driver and redirector need to release their files first.
+            // Release redirector resources before applying the update.
             if (_liteModeManager.CurrentState is State.Started or State.Starting or State.Stopping)
                 await _liteModeManager.StopForUpdateAsync();
 
             await _mainViewModel.SaveSettingsAsync();
+            restartEmbeddedClient = _embeddedClient.IsReady || _embeddedClient.IsStarting;
+            await _embeddedClient.StopAsync();
             _updateService.ApplyUpdateAndRestart();
 
             // ApplyUpdatesAndRestart normally terminates this process. If the
@@ -421,7 +430,8 @@ public sealed partial class MainWindow : Window
             _forceExit = false;
             _exitInProgress = false;
             _mainViewModel.ResumeAfterFailedShutdown();
-            UpdateTitleBarProxyControls();
+            try { await _embeddedClient.ResumeAfterFailedUpdateAsync(WindowNative.GetWindowHandle(this), restartEmbeddedClient); }
+            catch (Exception clientError) { Serilog.Log.Warning(clientError, "Failed to resume bundled v2rayN after update failure"); }
             ShowNotification("更新未应用，NPP 已恢复运行，可稍后重试", isInfo: false);
         }
     }
@@ -438,15 +448,18 @@ public sealed partial class MainWindow : Window
     {
         if (!_mainViewModelDisposed)
         {
-            _mainViewModel.PropertyChanged -= TitleBarViewModel_PropertyChanged;
+            _connectivity.Dispose();
+            _mainViewModel.PropertyChanged -= MainViewModel_PropertyChanged;
             _mainViewModel.Dispose();
             _mainViewModelDisposed = true;
         }
 
         _trayIcon?.Dispose();
         _trayIcon = null;
-        _trayDrawingIcon?.Dispose();
-        _trayDrawingIcon = null;
+        _trayRunningIconTemplate?.Dispose();
+        _trayRunningIconTemplate = null;
+        _trayStoppedIconTemplate?.Dispose();
+        _trayStoppedIconTemplate = null;
     }
 
     [DllImport("user32.dll", EntryPoint = "ShowWindow")]
@@ -465,6 +478,7 @@ public sealed partial class MainWindow : Window
         var pageType = tag switch
         {
             "MainPage" => typeof(MainPage),
+            "V2rayNPage" => typeof(V2rayNPage),
             "LogPage" => typeof(LogPage),
             "SettingsPage" => typeof(SettingsPage),
             _ => null
@@ -472,6 +486,8 @@ public sealed partial class MainWindow : Window
 
         if (pageType == null)
             return;
+
+        var pageTitle = item.Content?.ToString();
 
         var navigationVersion = ++_navigationVersion;
         SetSelectedNav(item);
@@ -485,7 +501,7 @@ public sealed partial class MainWindow : Window
         var isFirstVisit = !_loadedPageTypes.Contains(pageType);
         if (isFirstVisit)
         {
-            PageLoadingText.Text = $"正在打开{item.Content}…";
+            PageLoadingText.Text = $"正在打开{pageTitle}…";
             PageLoadingOverlay.Visibility = Visibility.Visible;
 
             // Return control to the compositor for one frame so the selected
@@ -512,7 +528,7 @@ public sealed partial class MainWindow : Window
         {
             RestoreSelectedNavFromCurrentPage();
             Serilog.Log.Error(exception, "Failed to navigate to {PageType}", pageType.Name);
-            ShowNotification($"页面打开失败：{item.Content}", isInfo: false);
+            ShowNotification($"页面打开失败：{pageTitle}", isInfo: false);
         }
         finally
         {
@@ -526,6 +542,7 @@ public sealed partial class MainWindow : Window
         var currentButton = ContentFrame.CurrentSourcePageType switch
         {
             var type when type == typeof(MainPage) => HomeNavButton,
+            var type when type == typeof(V2rayNPage) => V2rayNNavButton,
             var type when type == typeof(LogPage) => LogNavButton,
             var type when type == typeof(SettingsPage) => SettingsNavButton,
             _ => null
@@ -537,7 +554,7 @@ public sealed partial class MainWindow : Window
 
     private void SetSelectedNav(Button selected)
     {
-        foreach (var button in new[] { HomeNavButton, LogNavButton, SettingsNavButton })
+        foreach (var button in new[] { HomeNavButton, V2rayNNavButton, LogNavButton, SettingsNavButton })
         {
             var isSelected = ReferenceEquals(button, selected);
             button.Foreground = new Microsoft.UI.Xaml.Media.SolidColorBrush(

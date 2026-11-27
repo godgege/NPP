@@ -6,7 +6,7 @@
     <AssemblyTitle>NPP</AssemblyTitle>
     <Product>NPP</Product>
     <Company>NetchX</Company>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\NPP.ico</ApplicationIcon>
     <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
@@ -36,6 +36,19 @@
   <ItemGroup>
     <ProjectReference Include="..\NPP.Core\NPP.Core.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\Storage\v2rayN\**\*"
+             Exclude="..\Storage\v2rayN\gui*\**\*"
+             Link="clients\v2rayN\%(RecursiveDir)%(Filename)%(Extension)"
+             CopyToOutputDirectory="PreserveNewest"
+             CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="CheckBundledClient" BeforeTargets="PrepareForBuild">
+    <Error Condition="!Exists('$(MSBuildProjectDirectory)\..\Storage\v2rayN\package.json')"
+           Text="v2rayN resources are missing. Run .\prepare-v2rayn.ps1 (or pass -ArchivePath with the official portable ZIP) before building NPP." />
+  </Target>
 
   <ItemGroup>
     <None Update="Assets\NPP.ico" CopyToOutputDirectory="PreserveNewest" />

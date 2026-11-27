@@ -185,12 +185,12 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="关闭窗口时退出"
+                                <TextBlock Text="启动后最小化"
                                            Style="{StaticResource SettingsOptionLabelStyle}" />
                                 <ToggleSwitch Grid.Column="1"
-                                              AutomationProperties.Name="关闭窗口时退出"
+                                              AutomationProperties.Name="启动后最小化"
                                               Style="{StaticResource SettingsToggleStyle}"
-                                              IsOn="{x:Bind ViewModel.ExitWhenClosed, Mode=TwoWay}" />
+                                              IsOn="{x:Bind ViewModel.MinimizeWhenStarted, Mode=TwoWay}" />
                             </Grid>
                         </Border>
 
@@ -200,12 +200,12 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="退出时停止代理"
+                                <TextBlock Text="关闭窗口时退出"
                                            Style="{StaticResource SettingsOptionLabelStyle}" />
                                 <ToggleSwitch Grid.Column="1"
-                                              AutomationProperties.Name="退出时停止代理"
+                                              AutomationProperties.Name="关闭窗口时退出"
                                               Style="{StaticResource SettingsToggleStyle}"
-                                              IsOn="{x:Bind ViewModel.StopWhenExited, Mode=TwoWay}" />
+                                              IsOn="{x:Bind ViewModel.ExitWhenClosed, Mode=TwoWay}" />
                             </Grid>
                         </Border>
 
@@ -215,12 +215,12 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="打开后启动代理"
+                                <TextBlock Text="开机自动启动"
                                            Style="{StaticResource SettingsOptionLabelStyle}" />
                                 <ToggleSwitch Grid.Column="1"
-                                              AutomationProperties.Name="打开后启动代理"
+                                              AutomationProperties.Name="开机自动启动"
                                               Style="{StaticResource SettingsToggleStyle}"
-                                              IsOn="{x:Bind ViewModel.StartWhenOpened, Mode=TwoWay}" />
+                                              IsOn="{x:Bind ViewModel.RunAtStartup, Mode=TwoWay}" />
                             </Grid>
                         </Border>
 
@@ -230,12 +230,12 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="启动后最小化"
+                                <TextBlock Text="启动时开启分流"
                                            Style="{StaticResource SettingsOptionLabelStyle}" />
                                 <ToggleSwitch Grid.Column="1"
-                                              AutomationProperties.Name="启动后最小化"
+                                              AutomationProperties.Name="启动时开启分流"
                                               Style="{StaticResource SettingsToggleStyle}"
-                                              IsOn="{x:Bind ViewModel.MinimizeWhenStarted, Mode=TwoWay}" />
+                                              IsOn="{x:Bind ViewModel.StartWhenOpened, Mode=TwoWay}" />
                             </Grid>
                         </Border>
 
@@ -247,12 +247,13 @@
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <TextBlock Text="开机自启动"
+                                <TextBlock Text="启动时连接节点"
                                            Style="{StaticResource SettingsOptionLabelStyle}" />
                                 <ToggleSwitch Grid.Column="1"
-                                              AutomationProperties.Name="开机自启动"
+                                              AutomationProperties.Name="启动时连接节点"
+                                              ToolTipService.ToolTip="下次启动 NPP 时自动启动内置 v2rayN"
                                               Style="{StaticResource SettingsToggleStyle}"
-                                              IsOn="{x:Bind ViewModel.RunAtStartup, Mode=TwoWay}" />
+                                              IsOn="{x:Bind ViewModel.StartEmbeddedClientWhenOpened, Mode=TwoWay}" />
                             </Grid>
                         </Border>
                     </Grid>
@@ -431,7 +432,7 @@
                                 </StackPanel>
                                 <HyperlinkButton Grid.Column="2"
                                                  Content="GitHub"
-                                                 NavigateUri="https://github.com/godgege/netch"
+                                                 NavigateUri="https://github.com/godgege/NPP"
                                                  MinWidth="0"
                                                  MinHeight="32"
                                                  Padding="10,0"

@@ -29,7 +29,7 @@ public enum AppUpdateStage
 /// </summary>
 public sealed class VelopackUpdateService : ObservableObject, IDisposable
 {
-    private const string RepositoryUrl = "https://github.com/godgege/netch";
+    private const string RepositoryUrl = "https://github.com/godgege/NPP";
 
     private readonly DispatcherQueue? _dispatcherQueue;
     private readonly SemaphoreSlim _operationGate = new(1, 1);

@@ -290,14 +290,8 @@ extern "C" {
 			nf_addRule(&rule, FALSE);
 			addMappedIPv4AllowRule("::ffff:192.168.0.0", "255.255.0.0");
 
-			/* 198.18.0.0/15 */
-			memset(&rule, 0, sizeof(NF_RULE));
-			rule.ip_family = AF_INET;
-			inet_pton(AF_INET, "198.18.0.0", rule.remoteIpAddress);
-			inet_pton(AF_INET, "255.254.0.0", rule.remoteIpAddressMask);
-			rule.filteringFlag = NF_ALLOW;
-			nf_addRule(&rule, FALSE);
-			addMappedIPv4AllowRule("::ffff:198.18.0.0", "255.254.0.0");
+			// Proxy DNS implementations use 198.18.0.0/15 for virtual destinations.
+			// Leave IPv4 and IPv4-mapped addresses in this range eligible for app routing.
 
 			/* IPv4 multicast 224.0.0.0/4 */
 			memset(&rule, 0, sizeof(NF_RULE));

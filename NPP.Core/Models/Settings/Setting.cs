@@ -52,7 +52,7 @@ public class Setting
     public string LocalAddress { get; set; } = "127.0.0.1";
 
     /// <summary>
-    ///     是否启动后自动最小化
+    ///     NPP 启动后是否最小化到托盘。
     /// </summary>
     public bool MinimizeWhenStarted { get; set; } = false;
 
@@ -82,9 +82,9 @@ public class Setting
     public int RequestTimeout { get; set; } = 10000;
 
     /// <summary>
-    ///     是否开机启动软件
+    ///     是否开机启动应用
     /// </summary>
-    public bool RunAtStartup { get; set; } = false;
+    public bool RunAtStartup { get; set; } = true;
 
     /// <summary>
     ///     服务器选择位置
@@ -106,15 +106,13 @@ public class Setting
     /// </summary>
     public int StartedPingInterval { get; set; } = -1;
 
-    /// <summary>
-    ///     是否打开软件时启动加速
-    /// </summary>
-    public bool StartWhenOpened { get; set; } = false;
+    /// <summary>启动 NPP 时自动打开内置 v2rayN。</summary>
+    public bool StartEmbeddedClientWhenOpened { get; set; } = true;
 
     /// <summary>
-    ///     是否退出时停止
+    ///     NPP 启动时是否开启应用分流。
     /// </summary>
-    public bool StopWhenExited { get; set; } = false;
+    public bool StartWhenOpened { get; set; } = true;
 
     /// <summary>
     ///     STUN测试服务器

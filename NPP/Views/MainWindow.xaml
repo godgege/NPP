@@ -22,8 +22,6 @@
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
                 <StackPanel Grid.Column="0"
@@ -47,7 +45,7 @@
 
                 <StackPanel Grid.Column="1" Margin="24,0,0,0" Orientation="Horizontal">
                     <Button x:Name="HomeNavButton"
-                            Content="首页"
+                            Content="应用分流"
                             Tag="MainPage"
                             Height="48"
                             MinWidth="0"
@@ -57,6 +55,18 @@
                             Background="Transparent"
                             BorderBrush="#6556D9"
                             BorderThickness="0,0,0,2"
+                            CornerRadius="0"
+                            Click="NavButton_Click" />
+                    <Button x:Name="V2rayNNavButton"
+                            Content="代理节点"
+                            Tag="V2rayNPage"
+                            Height="48"
+                            MinWidth="0"
+                            Padding="14,0"
+                            FontSize="13"
+                            Foreground="#748094"
+                            Background="Transparent"
+                            BorderThickness="0"
                             CornerRadius="0"
                             Click="NavButton_Click" />
                     <Button x:Name="LogNavButton"
@@ -85,50 +95,13 @@
                             Click="NavButton_Click" />
                 </StackPanel>
 
-                <Grid Grid.Column="2" />
-
-                <Border x:Name="TitleBarProxyStatus"
-                        Grid.Column="3"
-                        Height="32"
-                        Margin="8,0,8,0"
-                        Padding="11,0"
-                        CornerRadius="16"
-                        Background="#F1F4F8"
-                        VerticalAlignment="Center"
-                        AutomationProperties.Name="代理状态">
-                    <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
-                        <Ellipse x:Name="TitleBarStatusDot" Width="7" Height="7" Fill="#8B97A8" />
-                        <TextBlock x:Name="TitleBarStatusText"
-                                   Text="未运行"
-                                   FontSize="12"
-                                   Foreground="#5E6B7E"
-                                   VerticalAlignment="Center" />
-                    </StackPanel>
-                </Border>
-
-                <Button x:Name="TitleBarStartStopButton"
-                        Grid.Column="4"
-                        Height="34"
-                        MinWidth="96"
-                        Margin="0,0,10,0"
-                        Padding="16,0"
-                        CornerRadius="8"
-                        Background="#5546CC"
-                        Foreground="White"
-                        BorderThickness="0"
-                        FontSize="13"
-                        FontWeight="SemiBold"
-                        Content="启动代理"
-                        VerticalContentAlignment="Center"
-                        Click="TitleBarStartStopButton_Click" />
-
-                <Border x:Name="RightInsetSpace" Grid.Column="5" Width="138" />
+                <Border x:Name="RightInsetSpace" Grid.Column="3" Width="138" />
             </Grid>
         </Border>
 
         <Grid Grid.Row="1" Background="#F6F8FB">
             <Frame x:Name="ContentFrame"
-                   CacheSize="3"
+                   CacheSize="4"
                    Background="#F6F8FB" />
 
             <Grid x:Name="PageLoadingOverlay"

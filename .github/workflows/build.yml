@@ -4,9 +4,11 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - master
       - main
   pull_request:
     branches:
+      - master
       - main
 
 permissions:
@@ -32,6 +34,10 @@ jobs:
       - name: Build NPP
         shell: pwsh
         run: .\build-npp.ps1 -Configuration Release -OutputPath release -PlatformToolset v143
+
+      - name: Check SOCKS5 connectivity behavior
+        shell: pwsh
+        run: dotnet run --project Tests\ConnectivityChecks\ConnectivityChecks.csproj -c Release
 
       - name: Validate NPP solution
         shell: pwsh

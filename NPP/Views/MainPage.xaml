@@ -359,20 +359,22 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Border x:Name="ProxySettingsCard"
-                Grid.Row="0"
+        <Border Grid.Row="0"
                 MinHeight="78"
                 Padding="14,12"
                 CornerRadius="10"
                 Background="{ThemeResource HomeSurfaceBrush}"
                 BorderBrush="{ThemeResource HomeLineBrush}"
                 BorderThickness="1">
-            <Grid ColumnSpacing="12">
+            <Grid ColumnSpacing="12" RowSpacing="10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="220" />
+                    <ColumnDefinition Width="180" />
                     <ColumnDefinition Width="104" />
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
@@ -420,6 +422,7 @@
                              InputScope="Number"
                              MaxLength="5"
                              Text="{x:Bind ViewModel.ProxyPort, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             IsEnabled="{x:Bind ViewModel.CanEditConfiguration, Mode=OneWay}"
                              PlaceholderText="10808"
                              Style="{StaticResource HomeFieldStyle}" />
                 </StackPanel>
@@ -431,6 +434,7 @@
                                IsHitTestVisible="False" />
                     <CheckBox AutomationProperties.Name="使用本机地址"
                               IsChecked="{x:Bind ViewModel.UseLocalhostOverride, Mode=TwoWay}"
+                              IsEnabled="{x:Bind ViewModel.CanEditConfiguration, Mode=OneWay}"
                               Content="本机地址"
                               FontSize="13"
                               Height="36"
@@ -446,15 +450,57 @@
                     </CheckBox>
                 </StackPanel>
 
-                <Button Grid.Column="4"
-                        Height="36"
-                        MinHeight="36"
-                        Padding="10,0"
-                        VerticalAlignment="Bottom"
-                        AutomationProperties.Name="高级代理设置"
-                        Content="高级"
-                        Click="AdvancedSettings_Click"
-                        Style="{StaticResource HomeSecondaryActionButtonStyle}" />
+                <Grid Grid.Row="1" Grid.ColumnSpan="4" ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid ColumnSpacing="7" VerticalAlignment="Center">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                 Fill="{x:Bind Connectivity.Home.IndicatorBrush, Mode=OneWay}" />
+                        <TextBlock x:Name="ConnectivityStatusText" Grid.Column="1" FontSize="12"
+                                   TextTrimming="CharacterEllipsis" MaxLines="1"
+                                   Foreground="{ThemeResource HomeMutedBrush}"
+                                   Text="{x:Bind Connectivity.Home.Message, Mode=OneWay}"
+                                   ToolTipService.ToolTip="{x:Bind Connectivity.Home.Tooltip, Mode=OneWay}" />
+                    </Grid>
+
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                        <Button Height="36" MinHeight="36" Padding="10,0"
+                                AutomationProperties.Name="高级代理设置"
+                                Content="高级"
+                                IsEnabled="{x:Bind ViewModel.CanEditConfiguration, Mode=OneWay}"
+                                Click="AdvancedSettings_Click"
+                                Style="{StaticResource HomeSecondaryActionButtonStyle}" />
+                        <Button x:Name="CheckConnectivityButton"
+                                Height="36" MinHeight="36" Padding="10,0"
+                                AutomationProperties.Name="检测 SOCKS5 连通"
+                                Content="{x:Bind Connectivity.Home.ButtonText, Mode=OneWay}"
+                                IsEnabled="{x:Bind Connectivity.Home.CanCheck, Mode=OneWay}"
+                                ToolTipService.ToolTip="通过当前 SOCKS5 访问测试地址，无需开启应用分流"
+                                Click="CheckConnectivity_Click"
+                                Style="{StaticResource HomeSecondaryActionButtonStyle}" />
+                        <Button x:Name="RoutingStartStopButton"
+                                Height="36" MinHeight="36" MinWidth="120" Padding="10,0"
+                                AutomationProperties.Name="{x:Bind ViewModel.RoutingButtonText, Mode=OneWay}"
+                                ToolTipService.ToolTip="{x:Bind ViewModel.RoutingButtonText, Mode=OneWay}"
+                                Command="{x:Bind ViewModel.StartStopCommand}"
+                                Background="{ThemeResource HomeAccentSoftBrush}"
+                                BorderBrush="{ThemeResource HomeAccentBrush}"
+                                Style="{StaticResource HomeSecondaryActionButtonStyle}">
+                            <StackPanel Orientation="Horizontal" Spacing="7" VerticalAlignment="Center">
+                                <Ellipse Width="7" Height="7" VerticalAlignment="Center"
+                                         Fill="{x:Bind ViewModel.RoutingStatusBrush, Mode=OneWay}" />
+                                <TextBlock Text="{x:Bind ViewModel.RoutingButtonText, Mode=OneWay}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </StackPanel>
+                </Grid>
 
             </Grid>
         </Border>
@@ -1047,7 +1093,7 @@
                               FontSize="18"
                               Foreground="{ThemeResource HomeAccentBrush}" />
                 </Border>
-                <TextBlock Text="首页加载失败"
+                <TextBlock Text="应用分流页面加载失败"
                            HorizontalAlignment="Center"
                            FontSize="15"
                            FontWeight="SemiBold"

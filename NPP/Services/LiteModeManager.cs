@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -15,9 +14,7 @@ namespace Netch.App.Services;
 
 public partial class LiteModeManager : ObservableObject
 {
-    private const int ProxyProbeTimeoutMilliseconds = 2500;
     private const ulong TrafficLogStepBytes = 1024 * 1024;
-    private static readonly byte[] Socks5NoAuthenticationGreeting = [0x05, 0x01, 0x00];
 
     private readonly MainController _mainController;
     private readonly NetchAppContext _appContext;
@@ -29,22 +26,12 @@ public partial class LiteModeManager : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CanStartStop))]
-    [NotifyPropertyChangedFor(nameof(ControlButtonText))]
     private State _currentState = State.Waiting;
 
     [ObservableProperty]
     private string _statusText = "等待操作";
 
     public bool CanStartStop => CurrentState is State.Waiting or State.Stopped or State.Started;
-
-    public string ControlButtonText => CurrentState switch
-    {
-        State.Waiting or State.Stopped => "开始运行",
-        State.Started => "停止运行",
-        State.Starting => "正在启动...",
-        State.Stopping => "正在停止...",
-        _ => string.Empty
-    };
 
     public IReadOnlyList<string> CurrentProcessNames => _currentProcessNames;
 
@@ -91,8 +78,7 @@ public partial class LiteModeManager : ObservableObject
                 return false;
             }
 
-            // Capture a stable configuration snapshot before the asynchronous
-            // SOCKS5 probe. Advanced settings only take effect on the next start.
+            // Advanced settings are applied each time routing starts.
             var redirectorConfig = _appContext.Settings.Redirector;
             var enableUdp = redirectorConfig.FilterUDP;
             var includeChildProcesses = redirectorConfig.FilterParent;
@@ -100,27 +86,6 @@ public partial class LiteModeManager : ObservableObject
             var dnsHost = NormalizeDnsEndpointOrDefault(redirectorConfig.DNSHost);
 
             CurrentState = State.Starting;
-            StatusText = "正在测试代理连接...";
-            var probe = await ProbeSocks5Async(proxyHost, port);
-            if (!probe.HostResolved)
-            {
-                Log.Warning("Cannot resolve host {Host}", proxyHost);
-                StatusText = $"无法解析地址或解析超时: {proxyHost}";
-                CurrentState = State.Stopped;
-                return false;
-            }
-
-            if (probe.Address == null)
-            {
-                Log.Warning("Proxy {Host}:{Port} did not complete a no-authentication SOCKS5 handshake", proxyHost, port);
-                StatusText = $"SOCKS5 代理不可用或需要认证: {proxyHost}:{port}";
-                CurrentState = State.Stopped;
-                return false;
-            }
-
-            Log.Information("SOCKS5 proxy {Host}:{Port} handshake succeeded via {Address} in {Delay}ms",
-                proxyHost, port, probe.Address, probe.ElapsedMilliseconds);
-
             _currentProcessNames = selectedProcesses
                 .Select(p => p.FileName)
                 .Where(name => !string.IsNullOrWhiteSpace(name))
@@ -172,6 +137,8 @@ public partial class LiteModeManager : ObservableObject
                 proxyHost, port, string.Join(", ", selectedProcesses.Select(p => p.FileName)));
 
             StatusText = "启动中...";
+            // 分流状态表示规则已经启用。实际的 SOCKS5 连接在收到待转发的请求时建立，
+            // 因此可以先启用分流，再启动 v2rayN 或其他 SOCKS5 服务。
             await _mainController.StartAsync(server, mode);
             CurrentState = State.Started;
             StatusText = "运行中 - 暂无转发流量";
@@ -384,84 +351,5 @@ public partial class LiteModeManager : ObservableObject
         }
 
         _dispatcherQueue.TryEnqueue(() => StatusText = value);
-    }
-
-    private static async Task<(bool HostResolved, IPAddress? Address, long ElapsedMilliseconds)> ProbeSocks5Async(
-        string host,
-        ushort port)
-    {
-        var started = Stopwatch.GetTimestamp();
-        using var timeoutCts = new CancellationTokenSource(TimeSpan.FromMilliseconds(ProxyProbeTimeoutMilliseconds));
-        var token = timeoutCts.Token;
-
-        IPAddress[] addresses;
-        if (IPAddress.TryParse(host, out var ip))
-        {
-            addresses = [ip];
-        }
-        else
-        {
-            try
-            {
-                addresses = await Dns.GetHostAddressesAsync(host, token);
-            }
-            catch (Exception ex) when (ex is SocketException or OperationCanceledException or ArgumentException)
-            {
-                return (false, null, (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
-            }
-        }
-
-        addresses = addresses
-            .Where(address => address.AddressFamily is AddressFamily.InterNetwork or AddressFamily.InterNetworkV6)
-            .Distinct()
-            .ToArray();
-        if (addresses.Length == 0)
-            return (false, null, (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
-
-        var pending = addresses
-            .Select(address => ProbeSocks5EndpointAsync(address, port, token))
-            .ToList();
-
-        while (pending.Count > 0)
-        {
-            var completed = await Task.WhenAny(pending);
-            pending.Remove(completed);
-            var successfulAddress = await completed;
-            if (successfulAddress == null)
-                continue;
-
-            await timeoutCts.CancelAsync();
-            if (pending.Count > 0)
-                await Task.WhenAll(pending);
-
-            return (true, successfulAddress, (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
-        }
-
-        return (true, null, (long)Stopwatch.GetElapsedTime(started).TotalMilliseconds);
-    }
-
-    private static async Task<IPAddress?> ProbeSocks5EndpointAsync(
-        IPAddress address,
-        ushort port,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            using var client = new TcpClient(address.AddressFamily);
-            await client.ConnectAsync(address, port, cancellationToken);
-
-            var stream = client.GetStream();
-            await stream.WriteAsync(Socks5NoAuthenticationGreeting, cancellationToken);
-
-            var response = new byte[2];
-            await stream.ReadExactlyAsync(response, cancellationToken);
-            if (response[0] == 0x05 && response[1] == 0x00)
-                return address;
-        }
-        catch (Exception ex) when (ex is SocketException or IOException or OperationCanceledException)
-        {
-        }
-
-        return null;
     }
 }

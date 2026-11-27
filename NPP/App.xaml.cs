@@ -52,7 +52,9 @@ public partial class App : Application
         }
 
         MainWindow = new MainWindow();
-        if (!Program.IsStartupLaunch)
+        if (_appContext.Settings.MinimizeWhenStarted)
+            MainWindow.MinimizeToTray();
+        else
             MainWindow.Activate();
         StartActivationListener();
         try
@@ -167,6 +169,8 @@ public partial class App : Application
         services.AddSingleton<IWindowActivator, WindowActivatorService>();
         services.AddSingleton<MainController>();
         services.AddSingleton<LiteModeManager>();
+        services.AddSingleton<EmbeddedV2rayNService>();
+        services.AddSingleton<ProxyConnectivityService>();
         services.AddSingleton<VelopackUpdateService>();
         services.AddSingleton<StartupRegistrationService>();
         services.AddSingleton<ModeService>();

@@ -1,0 +1,20 @@
+{
+  "version": "8.0.1",
+  "url": "https://github.com/2dust/v2rayN/releases/download/8.0.1/v2rayN-windows-64-desktop-aot.zip",
+  "sha256": "6025ddbb7b2a7d8cd793abcc15895b2614d9d1d8eb12b068523ac9c76edfaae9",
+  "archiveRoot": "v2rayN-windows-64",
+  "source": "https://github.com/2dust/v2rayN/tree/d31b26971f7703a693a587c3f4f786f41476cdcc",
+  "requiredFiles": [
+    "v2rayN.exe",
+    "AmazTool.exe",
+    "av_libglesv2.dll",
+    "e_sqlite3.dll",
+    "libHarfBuzzSharp.dll",
+    "libSkiaSharp.dll",
+    "bin/xray/xray.exe",
+    "bin/sing_box/sing-box.exe",
+    "bin/mihomo/mihomo.exe",
+    "bin/geoip.dat",
+    "bin/geosite.dat"
+  ]
+}

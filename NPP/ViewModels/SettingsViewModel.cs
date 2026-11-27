@@ -44,10 +44,10 @@ public partial class SettingsViewModel : ObservableObject
 
     // Startup behavior
     [ObservableProperty] private bool _exitWhenClosed;
-    [ObservableProperty] private bool _stopWhenExited;
     [ObservableProperty] private bool _startWhenOpened;
     [ObservableProperty] private bool _minimizeWhenStarted;
     [ObservableProperty] private bool _runAtStartup;
+    [ObservableProperty] private bool _startEmbeddedClientWhenOpened;
     [ObservableProperty] private bool _checkUpdateWhenOpened;
     [ObservableProperty] private bool _checkBetaUpdate;
 
@@ -55,10 +55,10 @@ public partial class SettingsViewModel : ObservableObject
     {
         var s = _appContext.Settings;
         ExitWhenClosed = s.ExitWhenClosed;
-        StopWhenExited = s.StopWhenExited;
         StartWhenOpened = s.StartWhenOpened;
         MinimizeWhenStarted = s.MinimizeWhenStarted;
         RunAtStartup = s.RunAtStartup;
+        StartEmbeddedClientWhenOpened = s.StartEmbeddedClientWhenOpened;
         CheckUpdateWhenOpened = s.CheckUpdateWhenOpened;
         CheckBetaUpdate = s.CheckBetaUpdate;
     }
@@ -66,14 +66,14 @@ public partial class SettingsViewModel : ObservableObject
     partial void OnExitWhenClosedChanged(bool value) => ApplySetting(() =>
         _appContext.Settings.ExitWhenClosed = value);
 
-    partial void OnStopWhenExitedChanged(bool value) => ApplySetting(() =>
-        _appContext.Settings.StopWhenExited = value);
-
     partial void OnStartWhenOpenedChanged(bool value) => ApplySetting(() =>
         _appContext.Settings.StartWhenOpened = value);
 
     partial void OnMinimizeWhenStartedChanged(bool value) => ApplySetting(() =>
         _appContext.Settings.MinimizeWhenStarted = value);
+
+    partial void OnStartEmbeddedClientWhenOpenedChanged(bool value) => ApplySetting(() =>
+        _appContext.Settings.StartEmbeddedClientWhenOpened = value);
 
     partial void OnCheckUpdateWhenOpenedChanged(bool value) => ApplySetting(() =>
         _appContext.Settings.CheckUpdateWhenOpened = value);
