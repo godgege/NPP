@@ -193,12 +193,8 @@ public sealed partial class MainWindow : Window
 
     private void SetupTrayIcon()
     {
-        if (File.Exists(AppIconPath))
-        {
-            using var appIcon = new System.Drawing.Icon(AppIconPath, 32, 32);
-            _trayRunningIconTemplate = TrayIconFactory.Create(appIcon, proxyRunning: true);
-            _trayStoppedIconTemplate = TrayIconFactory.Create(appIcon, proxyRunning: false);
-        }
+        _trayRunningIconTemplate = TrayIconFactory.Create(proxyRunning: true);
+        _trayStoppedIconTemplate = TrayIconFactory.Create(proxyRunning: false);
 
         _trayIcon = new TaskbarIcon
         {
