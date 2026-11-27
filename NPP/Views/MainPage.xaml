@@ -352,7 +352,6 @@
     <Grid Background="{ThemeResource HomePageBackgroundBrush}">
         <Grid x:Name="HomeContent"
               x:Load="{x:Bind ShouldLoadHomeContent, Mode=OneWay}"
-              MaxWidth="1040"
               Padding="22,14,22,18">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />

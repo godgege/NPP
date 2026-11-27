@@ -16,12 +16,13 @@ internal static class TrayIconFactory
             graphics.SmoothingMode = SmoothingMode.AntiAlias;
             graphics.DrawIcon(appIcon, new Rectangle(0, 0, size, size));
 
-            // A contrasting rim keeps the badge visible on both taskbar themes.
-            graphics.FillEllipse(Brushes.White, 18, 18, 14, 14);
-            using var badge = new SolidBrush(proxyRunning
+            // The icon's central diamond frames the status dot.
+            const int dotSize = 6;
+            var dotOffset = (size - dotSize) / 2f;
+            using var dot = new SolidBrush(proxyRunning
                 ? Color.FromArgb(30, 166, 114)
                 : Color.FromArgb(230, 65, 65));
-            graphics.FillEllipse(badge, 20, 20, 10, 10);
+            graphics.FillEllipse(dot, dotOffset, dotOffset, dotSize, dotSize);
         }
 
         var handle = bitmap.GetHicon();

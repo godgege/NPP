@@ -29,6 +29,10 @@
                     <SolidColorBrush x:Key="AccentButtonBackground" Color="#5546CC" />
                     <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#6556D9" />
                     <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#4B3DB9" />
+                    <SolidColorBrush x:Key="AccentButtonForeground" Color="White" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="White" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="White" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundDisabled" Color="#5F6D80" />
                 </ResourceDictionary>
                 <ResourceDictionary x:Key="Default">
                     <SolidColorBrush x:Key="SettingsPageBackgroundBrush" Color="#11151C" />
@@ -47,9 +51,13 @@
                     <SolidColorBrush x:Key="ToggleSwitchStrokeOnPointerOver" Color="#8377EF" />
                     <SolidColorBrush x:Key="ToggleSwitchStrokeOnPressed" Color="#6556D9" />
 
-                    <SolidColorBrush x:Key="AccentButtonBackground" Color="#7264E7" />
-                    <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#8377EF" />
-                    <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#6556D9" />
+                    <SolidColorBrush x:Key="AccentButtonBackground" Color="#6556D9" />
+                    <SolidColorBrush x:Key="AccentButtonBackgroundPointerOver" Color="#6A5AE0" />
+                    <SolidColorBrush x:Key="AccentButtonBackgroundPressed" Color="#5546CC" />
+                    <SolidColorBrush x:Key="AccentButtonForeground" Color="White" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundPointerOver" Color="White" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundPressed" Color="White" />
+                    <SolidColorBrush x:Key="AccentButtonForegroundDisabled" Color="#A6B1C1" />
                 </ResourceDictionary>
             </ResourceDictionary.ThemeDictionaries>
 
@@ -104,14 +112,14 @@
                 <Setter Property="UseSystemFocusVisuals" Value="True" />
             </Style>
 
-            <Style x:Key="SettingsPrimaryActionButtonStyle" TargetType="Button">
+            <Style x:Key="SettingsPrimaryActionButtonStyle"
+                   TargetType="Button"
+                   BasedOn="{StaticResource AccentButtonStyle}">
                 <Setter Property="MinWidth" Value="82" />
                 <Setter Property="Height" Value="34" />
                 <Setter Property="Padding" Value="14,0" />
                 <Setter Property="CornerRadius" Value="7" />
                 <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="Background" Value="{ThemeResource AccentButtonBackground}" />
-                <Setter Property="Foreground" Value="White" />
                 <Setter Property="HorizontalContentAlignment" Value="Center" />
                 <Setter Property="VerticalContentAlignment" Value="Center" />
             </Style>
@@ -128,15 +136,15 @@
         </ResourceDictionary>
     </Page.Resources>
 
-    <Grid Background="{ThemeResource SettingsPageBackgroundBrush}">
-        <ScrollViewer x:Name="SettingsScroll"
-                      Padding="22,14,22,18"
-                      HorizontalScrollBarVisibility="Disabled"
+    <Grid x:Name="SettingsRoot"
+          Background="{ThemeResource SettingsPageBackgroundBrush}"
+          Padding="22,14,22,18">
+        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
                       HorizontalScrollMode="Disabled"
+                      HorizontalContentAlignment="Stretch"
+                      VerticalContentAlignment="Top"
                       VerticalScrollBarVisibility="Auto">
             <Grid x:Name="SettingsLayout"
-                  MaxWidth="1040"
-                  HorizontalAlignment="Stretch"
                   ColumnSpacing="12"
                   RowSpacing="12">
                 <Grid.RowDefinitions>
@@ -151,6 +159,7 @@
                 <Border x:Name="StartupCard"
                         Grid.Row="0"
                         Grid.Column="0"
+                        VerticalAlignment="Top"
                         Style="{StaticResource SettingsCardStyle}">
                     <Grid>
                         <Grid.RowDefinitions>
@@ -262,6 +271,7 @@
                 <StackPanel x:Name="SecondaryColumn"
                             Grid.Row="0"
                             Grid.Column="1"
+                            VerticalAlignment="Top"
                             Spacing="12">
                     <Border x:Name="UpdatesCard"
                             Style="{StaticResource SettingsCardStyle}">
@@ -383,7 +393,7 @@
                         <Grid>
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
-                                <RowDefinition Height="90" />
+                                <RowDefinition Height="Auto" />
                             </Grid.RowDefinitions>
 
                             <Border Grid.Row="0" Style="{StaticResource SettingsCardHeaderStyle}">
@@ -404,7 +414,7 @@
                             </Border>
 
                             <Grid Grid.Row="1"
-                                  Padding="14,0"
+                                  Padding="14"
                                   ColumnSpacing="10">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />

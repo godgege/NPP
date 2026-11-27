@@ -39,7 +39,7 @@ public sealed partial class SettingsPage : Page
         if (_usesCompactPadding != compactPadding)
         {
             _usesCompactPadding = compactPadding;
-            SettingsScroll.Padding = compactPadding
+            SettingsRoot.Padding = compactPadding
                 ? new Thickness(14, 12, 14, 16)
                 : new Thickness(22, 14, 22, 18);
         }
@@ -49,16 +49,12 @@ public sealed partial class SettingsPage : Page
 
         _isTwoColumnLayout = twoColumns;
         SettingsLayout.ColumnSpacing = twoColumns ? 12 : 0;
-        SettingsLayout.ColumnDefinitions[0].Width = new GridLength(1, GridUnitType.Star);
+        SettingsLayout.RowSpacing = twoColumns ? 0 : 12;
         SettingsLayout.ColumnDefinitions[1].Width = twoColumns
             ? new GridLength(1, GridUnitType.Star)
             : new GridLength(0);
 
-        Grid.SetRow(StartupCard, 0);
-        Grid.SetColumn(StartupCard, 0);
-
         Grid.SetRow(SecondaryColumn, twoColumns ? 0 : 1);
         Grid.SetColumn(SecondaryColumn, twoColumns ? 1 : 0);
-
     }
 }
