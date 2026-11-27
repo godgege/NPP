@@ -67,40 +67,6 @@ jobs:
         shell: pwsh
         run: dotnet run --project Tests\ConnectivityChecks\ConnectivityChecks.csproj -c Release
 
-      - name: Generate checksums
-        shell: pwsh
-        run: |
-          $version = $env:RELEASE_VERSION -replace '^[vV]', ''
-          $notesPath = ".github/release-notes/$version.md"
-          $body = if (Test-Path -LiteralPath $notesPath) {
-            @(Get-Content -Encoding UTF8 -LiteralPath $notesPath)
-          } else { @(
-            '## Changelogs'
-            '* NPP process-level proxy release built automatically by GitHub Actions.'
-            ''
-            '## 更新日志'
-            '* NPP 进程级代理发布包，由 GitHub Actions 自动构建。'
-          ) }
-          $body += @(
-            ''
-            '## 校验和'
-            '| 文件名 | SHA256 |'
-            '| :- | :- |'
-          )
-          $manifestPath = "velopack\assets.$env:RELEASE_CHANNEL.json"
-          $manifest = Get-Content -Raw -LiteralPath $manifestPath | ConvertFrom-Json
-          $releaseFileNames = @($manifest.RelativeFileName) + @("releases.$env:RELEASE_CHANNEL.json", "RELEASES-$env:RELEASE_CHANNEL")
-          $files = $releaseFileNames |
-            Sort-Object -Unique |
-            ForEach-Object { Join-Path 'velopack' $_ } |
-            Where-Object { Test-Path -LiteralPath $_ -PathType Leaf }
-          foreach ($file in $files) {
-            $item = Get-Item $file
-            $hash = (Get-FileHash $item.FullName -Algorithm SHA256).Hash.ToLower()
-            $body += "| $($item.Name) | $hash |"
-          }
-          $body | Out-File -Encoding UTF8 -FilePath RELEASE_BODY.md
-
       - name: Publish Velopack release
         shell: pwsh
         env:
@@ -125,6 +91,44 @@ jobs:
           if ($LASTEXITCODE -ne 0) {
             throw "Publishing the Velopack release failed with exit code $LASTEXITCODE."
           }
+
+      - name: Generate checksums from uploaded assets
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = $env:RELEASE_VERSION -replace '^[vV]', ''
+          $notesPath = ".github/release-notes/$version.md"
+          $body = if (Test-Path -LiteralPath $notesPath) {
+            @(Get-Content -Encoding UTF8 -LiteralPath $notesPath)
+          } else { @(
+            '## Changelogs'
+            '* NPP process-level proxy release built automatically by GitHub Actions.'
+            ''
+            '## 更新日志'
+            '* NPP 进程级代理发布包，由 GitHub Actions 自动构建。'
+          ) }
+          $body += @(
+            ''
+            '## 校验和'
+            '| 文件名 | SHA256 |'
+            '| :- | :- |'
+          )
+          # Velopack merges and rewrites the update index during upload.
+          # Hash the published assets, after that rewrite has completed.
+          $releaseJson = gh api "repos/$env:GITHUB_REPOSITORY/releases/tags/$env:RELEASE_VERSION"
+          if ($LASTEXITCODE -ne 0) {
+            throw 'Unable to retrieve the published release assets.'
+          }
+          $release = $releaseJson | ConvertFrom-Json
+          foreach ($asset in ($release.assets | Sort-Object name)) {
+            if ($asset.state -ne 'uploaded' -or $asset.digest -notmatch '^sha256:[0-9a-fA-F]{64}$') {
+              throw "Published asset has no verified SHA256 digest: $($asset.name)"
+            }
+            $hash = $asset.digest.Substring(7).ToLowerInvariant()
+            $body += "| $($asset.name) | $hash |"
+          }
+          $body | Out-File -Encoding UTF8 -FilePath RELEASE_BODY.md
 
       - name: Attach release notes
         shell: pwsh
