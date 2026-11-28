@@ -106,15 +106,17 @@ internal sealed class EmbeddedWindow : IDisposable
         }
     }
 
-    public static nint FindMainWindow(int processId)
+    public static nint FindMainWindow(int processId) => FindProcessWindow(processId, window =>
+        GetWindow(window, 4) == 0 && GetWindowTextLength(window) > 0 && GetWindowRect(window, out var rect) &&
+        rect.Right - rect.Left >= 400 && rect.Bottom - rect.Top >= 250);
+
+    internal static nint FindProcessWindow(int processId, Func<nint, bool> matches)
     {
         nint result = 0;
         EnumWindows((window, _) =>
         {
             GetWindowThreadProcessId(window, out var ownerId);
-            if (ownerId == processId && GetWindow(window, 4) == 0 &&
-                GetWindowTextLength(window) > 0 && GetWindowRect(window, out var rect) &&
-                rect.Right - rect.Left >= 400 && rect.Bottom - rect.Top >= 250)
+            if (ownerId == processId && matches(window))
             {
                 result = window;
                 return false;

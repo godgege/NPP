@@ -1,6 +1,5 @@
 using System.Net;
 using System.Text;
-using Microsoft.VisualStudio.Threading;
 
 namespace Netch.Utils;
 
@@ -73,7 +72,7 @@ public static class WebUtil
             {
                 using var downloadTask = input.CopyToAsync(fileStream);
                 if (progress != null)
-                    ReportProgressAsync(webResponse.ContentLength, downloadTask, fileStream, progress, 200).Forget();
+                    _ = ReportProgressAsync(webResponse.ContentLength, downloadTask, fileStream, progress, 200);
 
                 await downloadTask;
             }

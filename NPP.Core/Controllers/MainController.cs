@@ -1,5 +1,3 @@
-using System.Diagnostics;
-using Microsoft.VisualStudio.Threading;
 using Netch.Interfaces;
 using Netch.Models;
 using Netch.Models.Modes;
@@ -34,22 +32,17 @@ public class MainController
 
     public bool IsStopped => ServerController == null && ModeController == null;
 
-    private readonly AsyncSemaphore Lock = new(1);
+    private readonly SemaphoreSlim _lifecycleLock = new(1, 1);
 
     public async Task StartAsync(Server server, Mode mode)
     {
-        var releaser = await Lock.EnterAsync();
-        var lockHeld = true;
+        await _lifecycleLock.WaitAsync();
         try
         {
             Log.Information("Start MainController: {Server} {Mode}", $"{server.Type}", $"[{(int)mode.Type}]{mode.i18NRemark}");
 
             if (await DnsUtils.LookupAsync(server.Hostname) == null)
                 throw new MessageException(i18N.Translate("Lookup Server hostname failed"));
-
-            // TODO Disable NAT Type Test setting
-            // cache STUN Server ip to prevent "Wrong STUN Server"
-            DnsUtils.LookupAsync(_appContext.Settings.STUN_Server).Forget();
 
             Server = server;
             Mode = mode;
@@ -89,11 +82,9 @@ public class MainController
             }
             catch (Exception e)
             {
-                releaser.Dispose();
-                lockHeld = false;
                 try
                 {
-                    await StopAsync();
+                    await StopControllersAsync();
                 }
                 catch (Exception stopException)
                 {
@@ -117,8 +108,7 @@ public class MainController
         }
         finally
         {
-            if (lockHeld)
-                releaser.Dispose();
+            _lifecycleLock.Release();
         }
     }
 
@@ -134,8 +124,19 @@ public class MainController
 
     private async Task StopCoreAsync()
     {
-        using var _ = await Lock.EnterAsync();
+        await _lifecycleLock.WaitAsync();
+        try
+        {
+            await StopControllersAsync();
+        }
+        finally
+        {
+            _lifecycleLock.Release();
+        }
+    }
 
+    private async Task StopControllersAsync()
+    {
         Log.Information("Stop Main Controller");
         var errors = new List<Exception>();
 
@@ -214,30 +215,5 @@ public class MainController
         }
 
         PortCheck(port, portName, PortType.TCP);
-    }
-
-    public Task<NatTypeTestResult> DiscoveryNatTypeAsync(CancellationToken ctx = default)
-    {
-        Debug.Assert(Socks5Server != null, nameof(Socks5Server) + " != null");
-        return Socks5ServerTestUtils.DiscoveryNatTypeAsync(Socks5Server, _appContext.Settings.STUN_Server, (ushort)_appContext.Settings.STUN_Server_Port, ctx);
-    }
-
-    public Task<int?> HttpConnectAsync(CancellationToken ctx = default)
-    {
-        Debug.Assert(Socks5Server != null, nameof(Socks5Server) + " != null");
-        try
-        {
-            return Socks5ServerTestUtils.HttpConnectAsync(Socks5Server, ctx);
-        }
-        catch (OperationCanceledException)
-        {
-            // ignored
-        }
-        catch (Exception e)
-        {
-            Log.Warning(e, "Unhandled Socks5ServerTestUtils.HttpConnectAsync Exception");
-        }
-
-        return Task.FromResult<int?>(null);
     }
 }

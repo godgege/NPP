@@ -312,7 +312,9 @@ try {
         }
     }
 
-    Write-Host "Publishing NPP $($versionInfo.Semantic) as a self-contained WinUI app..."
+    # Use the same .NET runtime patch in local and CI builds.
+    $runtimeFrameworkVersion = '8.0.34'
+    Write-Host "Publishing NPP $($versionInfo.Semantic) with self-contained .NET $runtimeFrameworkVersion..."
     $publishArguments = @(
         'publish',
         (Join-Path $repositoryRoot 'NPP\NPP.csproj'),
@@ -321,6 +323,7 @@ try {
         '--self-contained', 'true',
         '--output', $stagingPath,
         '-p:Platform=x64',
+        "-p:NppBundledRuntimeVersion=$runtimeFrameworkVersion",
         '-p:WindowsAppSDKSelfContained=true',
         '-p:EnableMsixTooling=true',
         '-p:PublishSingleFile=false',
@@ -355,7 +358,13 @@ try {
         $mainExecutable,
         (Join-Path $stagingPath 'NPP.dll'),
         (Join-Path $stagingPath 'NPP.Core.dll'),
+        (Join-Path $stagingPath 'NPP.deps.json'),
+        (Join-Path $stagingPath 'NPP.runtimeconfig.json'),
         (Join-Path $stagingPath 'NPP.pri'),
+        (Join-Path $stagingPath 'hostfxr.dll'),
+        (Join-Path $stagingPath 'hostpolicy.dll'),
+        (Join-Path $stagingPath 'coreclr.dll'),
+        (Join-Path $stagingPath 'System.Private.CoreLib.dll'),
         (Join-Path $stagingPath 'Velopack.dll'),
         (Join-Path $stagingPath 'Assets\NPP.ico'),
         (Join-Path $stagingPath 'Assets\NPP.svg'),
@@ -372,6 +381,22 @@ try {
         if (-Not (Test-Path -LiteralPath $stagedFile -PathType Leaf)) {
             throw "NPP staging verification failed: $stagedFile"
         }
+    }
+
+    $runtimeConfig = Get-Content -Raw -LiteralPath (Join-Path $stagingPath 'NPP.runtimeconfig.json') | ConvertFrom-Json
+    $dependencies = Get-Content -Raw -LiteralPath (Join-Path $stagingPath 'NPP.deps.json') | ConvertFrom-Json
+    $framework = $runtimeConfig.runtimeOptions.includedFrameworks | Where-Object { $_.name -eq 'Microsoft.NETCore.App' }
+    if ($framework.version -ne $runtimeFrameworkVersion) {
+        throw "NPP must include Microsoft.NETCore.App $runtimeFrameworkVersion. Found '$($framework.version)'."
+    }
+    $runtimePack = "runtimepack.Microsoft.NETCore.App.Runtime.$Runtime/$runtimeFrameworkVersion"
+    if (-not $dependencies.libraries.PSObject.Properties[$runtimePack]) {
+        throw "NPP publish output is missing the pinned runtime pack '$runtimePack'."
+    }
+    $hostVersion = (Get-Item -LiteralPath (Join-Path $stagingPath 'hostfxr.dll')).VersionInfo.ProductVersion
+    $runtimeVersionPattern = '^' + [regex]::Escape($runtimeFrameworkVersion) + '(?=$|[+\s-])'
+    if ($hostVersion -notmatch $runtimeVersionPattern) {
+        throw "NPP must ship hostfxr.dll from .NET $runtimeFrameworkVersion. Found '$hostVersion'."
     }
 
     if (Test-Path -LiteralPath (Join-Path $stagingPath 'Netch.exe')) {

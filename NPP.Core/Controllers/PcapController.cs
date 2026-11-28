@@ -1,5 +1,4 @@
 using System.Text;
-using Microsoft.VisualStudio.Threading;
 using Netch.Interfaces;
 using Netch.Models;
 using Netch.Models.Modes;
@@ -73,12 +72,11 @@ public class PcapController : Guard, IModeController
     {
         if (new FileInfo(LogPath).Length == 0)
         {
-            Task.Run(() =>
-                {
-                    Thread.Sleep(1000);
-                    Utils.Utils.Open("https://github.com/zhxie/pcap2socks#dependencies");
-                })
-                .Forget();
+            _ = Task.Run(() =>
+            {
+                Thread.Sleep(1000);
+                Utils.Utils.Open("https://github.com/zhxie/pcap2socks#dependencies");
+            });
 
             throw new MessageException("Pleases install pcap2socks's dependency");
         }

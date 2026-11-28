@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using Microsoft.Diagnostics.Tracing.Parsers;
 using Microsoft.Diagnostics.Tracing.Session;
-using Microsoft.VisualStudio.Threading;
 using Netch.Controllers;
 using Netch.Interfaces;
 
@@ -89,34 +88,33 @@ public class Bandwidth
 
         _statusReporter.ReportBandwidthState(true);
 
-        Task.Run(() =>
+        _ = Task.Run(() =>
+        {
+            tSession = new TraceEventSession("KernelAndClrEventsSession");
+            tSession.EnableKernelProvider(KernelTraceEventParser.Keywords.NetworkTCPIP);
+
+            //这玩意儿上传和下载得到的data是一样的:)
+            //所以暂时没办法区分上传下载流量
+            tSession.Source.Kernel.TcpIpRecv += data =>
             {
-                tSession = new TraceEventSession("KernelAndClrEventsSession");
-                tSession.EnableKernelProvider(KernelTraceEventParser.Keywords.NetworkTCPIP);
+                if (pidHastSet.Contains(data.ProcessID))
+                    lock (counterLock)
+                        received += (ulong)data.size;
 
-                //这玩意儿上传和下载得到的data是一样的:)
-                //所以暂时没办法区分上传下载流量
-                tSession.Source.Kernel.TcpIpRecv += data =>
-                {
-                    if (pidHastSet.Contains(data.ProcessID))
-                        lock (counterLock)
-                            received += (ulong)data.size;
+                // Debug.WriteLine($"TcpIpRecv: {ToByteSize(data.size)}");
+            };
 
-                    // Debug.WriteLine($"TcpIpRecv: {ToByteSize(data.size)}");
-                };
+            tSession.Source.Kernel.UdpIpRecv += data =>
+            {
+                if (pidHastSet.Contains(data.ProcessID))
+                    lock (counterLock)
+                        received += (ulong)data.size;
 
-                tSession.Source.Kernel.UdpIpRecv += data =>
-                {
-                    if (pidHastSet.Contains(data.ProcessID))
-                        lock (counterLock)
-                            received += (ulong)data.size;
+                // Debug.WriteLine($"UdpIpRecv: {ToByteSize(data.size)}");
+            };
 
-                    // Debug.WriteLine($"UdpIpRecv: {ToByteSize(data.size)}");
-                };
-
-                tSession.Source.Process();
-            })
-            .Forget();
+            tSession.Source.Process();
+        });
 
         while (!ct.IsCancellationRequested)
         {

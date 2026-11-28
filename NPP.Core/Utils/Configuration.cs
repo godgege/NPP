@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Microsoft.VisualStudio.Threading;
 using Netch.JsonConverter;
 using Netch.Models;
 
@@ -10,7 +9,7 @@ public class Configuration
 {
     private readonly NetchAppContext _appContext;
 
-    private readonly AsyncReaderWriterLock _lock = new(null);
+    private readonly SemaphoreSlim _fileLock = new(1, 1);
 
     private readonly JsonSerializerOptions _jsonSerializerOptions;
 
@@ -37,6 +36,7 @@ public class Configuration
 
     public async Task LoadAsync()
     {
+        await _fileLock.WaitAsync();
         try
         {
             TryMigrateLegacyConfiguration();
@@ -45,11 +45,9 @@ public class Configuration
             {
                 // Startup must not continue with an in-memory default configuration
                 // when the initial settings file could not actually be persisted.
-                await SaveOrThrowAsync();
+                await SaveCoreAsync();
                 return;
             }
-
-            await using var _ = await _lock.ReadLockAsync();
 
             if (await LoadCoreAsync(FileFullName))
                 return;
@@ -61,6 +59,10 @@ public class Configuration
         {
             Log.Error(e, "Load configuration failed");
             Environment.Exit(-1);
+        }
+        finally
+        {
+            _fileLock.Release();
         }
     }
 
@@ -151,10 +153,19 @@ public class Configuration
     /// </summary>
     public async Task SaveOrThrowAsync()
     {
-        if (_lock.IsWriteLockHeld)
-            return;
+        await _fileLock.WaitAsync();
+        try
+        {
+            await SaveCoreAsync();
+        }
+        finally
+        {
+            _fileLock.Release();
+        }
+    }
 
-        await using var _ = await _lock.WriteLockAsync();
+    private async Task SaveCoreAsync()
+    {
         Log.Verbose("Save Configuration");
 
         if (!Directory.Exists(DataDirectoryFullName))

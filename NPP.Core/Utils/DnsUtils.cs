@@ -1,13 +1,12 @@
 ﻿using System.Collections;
 using System.Net;
 using System.Net.Sockets;
-using Microsoft.VisualStudio.Threading;
 
 namespace Netch.Utils;
 
 public static class DnsUtils
 {
-    private static readonly AsyncSemaphore Lock = new(1);
+    private static readonly SemaphoreSlim LookupLock = new(1, 1);
 
     /// <summary>
     ///     缓存
@@ -17,7 +16,7 @@ public static class DnsUtils
 
     public static async Task<IPAddress?> LookupAsync(string hostname, AddressFamily inet = AddressFamily.Unspecified, int timeout = 3000)
     {
-        using var _ = await Lock.EnterAsync();
+        await LookupLock.WaitAsync();
         try
         {
             var cacheResult = inet switch
@@ -37,6 +36,10 @@ public static class DnsUtils
         {
             Log.Verbose(e, "Lookup hostname {Hostname} failed", hostname);
             return null;
+        }
+        finally
+        {
+            LookupLock.Release();
         }
     }
 

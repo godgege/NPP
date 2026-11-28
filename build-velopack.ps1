@@ -165,6 +165,39 @@ function Get-MsiPropertyValue {
     }
 }
 
+function Set-MsiPropertyValue {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+        [Parameter(Mandatory = $true)]
+        [string]$Value
+    )
+
+    $installer = $database = $view = $record = $null
+    try {
+        $installer = New-Object -ComObject WindowsInstaller.Installer
+        $database = $installer.GetType().InvokeMember(
+            'OpenDatabase', 'InvokeMethod', $null, $installer, @($Path, 1)) # Transacted
+        $view = $database.GetType().InvokeMember(
+            'OpenView', 'InvokeMethod', $null, $database, @('SELECT `Property`, `Value` FROM `Property`'))
+        $view.GetType().InvokeMember('Execute', 'InvokeMethod', $null, $view, $null) | Out-Null
+        $record = $installer.GetType().InvokeMember('CreateRecord', 'InvokeMethod', $null, $installer, @(2))
+        $record.GetType().InvokeMember('StringData', 'SetProperty', $null, $record, @(1, $Name)) | Out-Null
+        $record.GetType().InvokeMember('StringData', 'SetProperty', $null, $record, @(2, $Value)) | Out-Null
+        $view.GetType().InvokeMember('Modify', 'InvokeMethod', $null, $view, @(3, $record)) | Out-Null # Assign
+        $database.GetType().InvokeMember('Commit', 'InvokeMethod', $null, $database, $null) | Out-Null
+    }
+    finally {
+        foreach ($comObject in @($record, $view, $database, $installer)) {
+            if ($null -ne $comObject -and [Runtime.InteropServices.Marshal]::IsComObject($comObject)) {
+                [Runtime.InteropServices.Marshal]::FinalReleaseComObject($comObject) | Out-Null
+            }
+        }
+    }
+}
+
 function Remove-FileWithRetry {
     param (
         [Parameter(Mandatory = $true)]
@@ -341,6 +374,13 @@ try {
     $allUsers = Get-MsiPropertyValue -Path $machineInstallers[0].FullName -Name 'ALLUSERS'
     if ($allUsers -ne '1') {
         throw "MSI verification failed: expected ALLUSERS=1, found '$allUsers'."
+    }
+
+    # Windows Installer can plan to keep a newer DLL, then remove it with the old product.
+    # Force installation of the complete, self-contained runtime shipped by this package.
+    Set-MsiPropertyValue -Path $machineInstallers[0].FullName -Name 'REINSTALLMODE' -Value 'amus'
+    if ((Get-MsiPropertyValue -Path $machineInstallers[0].FullName -Name 'REINSTALLMODE') -ne 'amus') {
+        throw 'MSI verification failed: REINSTALLMODE must force file replacement.'
     }
 
     $perUserInstallers = @(Get-ChildItem -LiteralPath $outputPath -Filter '*-Setup.exe' -File)

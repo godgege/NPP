@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Text;
-using Microsoft.VisualStudio.Threading;
 using Netch.Enums;
 using Netch.Models;
 using Netch.Utils;
@@ -75,8 +74,8 @@ public abstract class Guard
 
         if (RedirectOutput)
         {
-            ReadOutputAsync(Instance.StandardOutput).Forget();
-            ReadOutputAsync(Instance.StandardError).Forget();
+            _ = ReadOutputAsync(Instance.StandardOutput);
+            _ = ReadOutputAsync(Instance.StandardError);
 
             if (!StartedKeywords.Any())
             {

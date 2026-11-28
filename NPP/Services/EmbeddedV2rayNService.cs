@@ -59,6 +59,8 @@ public sealed class EmbeddedV2rayNService
             _process = process;
             _job.Add(process);
 
+            var trayRemoval = V2rayNPatch.TryRemoveStartupTrayIconAsync(process.Id,
+                () => ReferenceEquals(process, _process) && !process.HasExited, _shutdown.Token);
             var timeout = Stopwatch.StartNew();
             while (timeout.Elapsed < TimeSpan.FromSeconds(30))
             {
@@ -69,6 +71,8 @@ public sealed class EmbeddedV2rayNService
                 if (handle != 0)
                 {
                     _window.Attach(handle);
+                    if (trayRemoval.IsCompleted && !await trayRemoval)
+                        V2rayNPatch.TryRemoveTrayIcon(process.Id);
                     _window.SetVisible(_visible);
                     process.Exited += OnProcessExited;
                     process.EnableRaisingEvents = true;

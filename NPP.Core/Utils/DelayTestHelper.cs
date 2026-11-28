@@ -1,4 +1,3 @@
-using Microsoft.VisualStudio.Threading;
 using Netch.Models;
 using Timer = System.Timers.Timer;
 
@@ -9,9 +8,9 @@ public class DelayTestHelper
     private readonly NetchAppContext _appContext;
     private readonly Timer _timer;
 
-    private readonly AsyncSemaphore _lock = new(1);
+    private readonly SemaphoreSlim _testLock = new(1, 1);
 
-    private readonly AsyncSemaphore _poolLock = new(16);
+    private readonly SemaphoreSlim _poolLock = new(16, 16);
 
     public static readonly NumberRange Range = new(0, int.MaxValue / 1000);
 
@@ -27,7 +26,7 @@ public class DelayTestHelper
             AutoReset = true
         };
 
-        _timer.Elapsed += (_, _) => PerformTestAsync().Forget();
+        _timer.Elapsed += (_, _) => _ = PerformTestAsync();
     }
 
     public bool Enabled
@@ -43,23 +42,29 @@ public class DelayTestHelper
     /// <param name="waitFinish">if does not get lock, block until last release</param>
     public async Task PerformTestAsync(bool waitFinish = false)
     {
-        if (_lock.CurrentCount == 0)
+        if (!await _testLock.WaitAsync(0))
         {
             if (waitFinish)
-                (await _lock.EnterAsync()).Dispose();
+            {
+                await _testLock.WaitAsync();
+                _testLock.Release();
+            }
 
             return;
         }
-
-        using var _ = await _lock.EnterAsync();
 
         try
         {
             var tasks = _appContext.Settings.Server.Select(async s =>
             {
-                using (await _poolLock.EnterAsync())
+                await _poolLock.WaitAsync();
+                try
                 {
                     await s.PingAsync(_appContext.Settings.ServerTCPing);
+                }
+                finally
+                {
+                    _poolLock.Release();
                 }
             });
 
@@ -68,6 +73,10 @@ public class DelayTestHelper
         catch (Exception)
         {
             // ignored
+        }
+        finally
+        {
+            _testLock.Release();
         }
     }
 
@@ -88,7 +97,7 @@ public class DelayTestHelper
             _timer.Interval = interval * 1000;
             _timer.Start();
             if (performTestAtOnce)
-                PerformTestAsync().Forget();
+                _ = PerformTestAsync();
         }
     }
 }
